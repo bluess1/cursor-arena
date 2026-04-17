@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cursor Arena</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      width:100vw; height:100vh; overflow:hidden;
+      background:#0f0f13; cursor:none;
+      font-family:'Segoe UI',monospace; color:white;
+      user-select:none;
+    }
+
+    #join-screen {
+      position:fixed; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:16px;
+      background:#0f0f13; z-index:999;
+    }
+    #join-screen h1 { font-size:32px; font-weight:600; }
+    #join-screen p  { font-size:14px; color:#666; }
+    #join-screen input {
+      background:#1a1a24; border:1px solid #333; color:white;
+      padding:10px 16px; border-radius:8px; font-size:16px;
+      outline:none; width:220px; text-align:center;
+    }
+    #join-screen input:focus { border-color:#555; }
+    #join-screen button {
+      background:#5b4fcc; color:white; border:none;
+      padding:10px 32px; border-radius:8px; font-size:15px;
+    }
+    #join-screen button:hover { background:#6d62d4; }
+
+    #arena { width:100%; height:100%; position:relative; }
+
+    /* HUD */
+    #hud {
+      position:fixed; top:0; left:0; right:0; padding:10px 16px;
+      display:flex; justify-content:space-between; align-items:center;
+      z-index:50; pointer-events:none;
+    }
+    #hud-left  { font-size:11px; color:#555; }
+    #hud-timer { font-size:13px; color:#888; font-variant-numeric:tabular-nums; }
+    #hud-right { font-size:11px; color:#555; }
+
+    /* Center message */
+    #center-msg {
+      position:fixed; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      pointer-events:none; z-index:60;
+    }
+    #msg-title {
+      font-size:48px; font-weight:700; opacity:0;
+      transition:opacity 0.3s; text-align:center;
+    }
+    #msg-sub {
+      font-size:16px; color:#888; margin-top:8px; opacity:0;
+      transition:opacity 0.3s; text-align:center;
+    }
+    #center-msg.visible #msg-title,
+    #center-msg.visible #msg-sub { opacity:1; }
+
+    /* Spectator banner — subtle top bar */
+    #spec-banner {
+      position:fixed; top:0; left:0; right:0; display:none;
+      justify-content:center; align-items:center;
+      padding:6px; background:rgba(255,200,0,0.12);
+      border-bottom:1px solid rgba(255,200,0,0.25);
+      font-size:12px; color:#f0c040; z-index:80; letter-spacing:0.5px;
+    }
+    #spec-banner.show { display:flex; }
+
+    /* Eliminated — subtle top notice */
+    #elim-notice {
+      position:fixed; top:36px; left:50%; transform:translateX(-50%);
+      display:none; padding:5px 14px; background:rgba(231,76,60,0.15);
+      border:1px solid rgba(231,76,60,0.3); border-radius:20px;
+      font-size:12px; color:#e74c3c; z-index:80; pointer-events:none;
+      letter-spacing:0.5px;
+    }
+    #elim-notice.show { display:block; }
+
+    /* Alive pips */
+    #alive-bar {
+      position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+      display:flex; gap:6px; z-index:50; pointer-events:none;
+    }
+    .alive-pip {
+      width:7px; height:7px; border-radius:50%; opacity:0.85;
+      transition:opacity 0.3s;
+    }
+    .alive-pip.dead { opacity:0.2; }
+
+    /* Leaderboard */
+    #leaderboard {
+      position:fixed; bottom:36px; right:14px; z-index:50;
+      pointer-events:none; text-align:right;
+    }
+    #leaderboard .lb-title {
+      font-size:10px; color:#444; letter-spacing:1px;
+      text-transform:uppercase; margin-bottom:5px;
+    }
+    .lb-row {
+      font-size:11px; color:#666; line-height:1.7;
+      display:flex; align-items:center; gap:6px; justify-content:flex-end;
+    }
+    .lb-dot  { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    .lb-name { max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .lb-time { color:#555; font-variant-numeric:tabular-nums; }
+
+    /* Cursors */
+    .cursor-wrap {
+      position:fixed; pointer-events:none;
+      transform:translate(-2px,-2px); z-index:100;
+    }
+    .cursor-label {
+      font-size:11px; margin-top:2px; margin-left:4px;
+      white-space:nowrap; text-shadow:0 1px 4px #000; font-weight:500;
+    }
+    .cursor-wrap.dead { opacity:0.25; }
+
+    /* Lasers */
+    .laser-warning {
+      position:fixed; pointer-events:none; z-index:30;
+      background:rgba(255,60,60,0.1);
+      border:2px dashed rgba(255,60,60,0.5);
+      animation:warnPulse 0.35s ease-in-out infinite alternate;
+    }
+    @keyframes warnPulse {
+      from { border-color:rgba(255,60,60,0.25); background:rgba(255,60,60,0.06); }
+      to   { border-color:rgba(255,60,60,0.85); background:rgba(255,60,60,0.18); }
+    }
+    .laser-active {
+      position:fixed; pointer-events:none; z-index:31;
+      background:#ff3c3c;
+      box-shadow:0 0 10px #ff3c3c, 0 0 28px rgba(255,60,60,0.45);
+    }
+
+    /* Intermission overlay */
+    #intermission-overlay {
+      position:fixed; inset:0; display:none;
+      align-items:center; justify-content:center;
+      z-index:55; pointer-events:none;
+    }
+    #intermission-overlay.show { display:flex; }
+    #intermission-overlay .im-text {
+      font-size:13px; color:#555; letter-spacing:2px; text-transform:uppercase;
+    }
+  </style>
+</head>
+<body>
+
+<div id="join-screen">
+  <h1>Cursor Arena</h1>
+  <p>Dodge the lasers. Be the last cursor standing.</p>
+  <input id="name-input" maxlength="16" placeholder="Your name"/>
+  <button onclick="joinGame()">Join →</button>
+</div>
+
+<div id="arena"></div>
+
+<div id="hud">
+  <div id="hud-left">0 players</div>
+  <div id="hud-timer"></div>
+  <div id="hud-right"></div>
+</div>
+
+<div id="spec-banner">Waiting for next round — spectating</div>
+<div id="elim-notice">eliminated</div>
+
+<div id="center-msg">
+  <div id="msg-title"></div>
+  <div id="msg-sub"></div>
+</div>
+
+<div id="intermission-overlay">
+  <div class="im-text">intermission</div>
+</div>
+
+<div id="alive-bar"></div>
+
+<div id="leaderboard">
+  <div class="lb-title">Top Players</div>
+  <div id="lb-rows"></div>
+</div>
+
+<script>
+const PARTYKIT_HOST  = "localhost:1999";
+const LASER_THICK    = 28;
+const COLORS = ["#e74c3c","#3498db","#2ecc71","#f39c12","#9b59b6","#1abc9c","#e67e22","#e91e63","#00bcd4","#ff5722"];
+
+let socket = null, myId = null, myName = "", myColor = "";
+let amAlive = true, isSpectating = false, phase = "waiting";
+let roundStartTime = 0, timerInterval = null;
+let ownCursorEl = null;
+
+const players  = {};   // id -> { name, color, alive, spectating }
+const others   = {};   // id -> { el, currentX, currentY, targetX, targetY }
+const lasers   = {};   // id -> { el, axis, pos }  (normalized pos)
+const warnings = {};   // id -> el
+
+// ── Lerp loop ─────────────────────────────────────────
+const LERP = 0.18;
+function lerp(a,b,t){ return a+(b-a)*t; }
+
+;(function tick(){
+  for(const id in others){
+    const p = others[id];
+    p.currentX = lerp(p.currentX, p.targetX, LERP);
+    p.currentY = lerp(p.currentY, p.targetY, LERP);
+    p.el.style.left = p.currentX+"px";
+    p.el.style.top  = p.currentY+"px";
+  }
+  requestAnimationFrame(tick);
+})();
+
+// ── Throttle ──────────────────────────────────────────
+function throttle(fn,ms){
+  let last=0;
+  return(...args)=>{
+    const now=Date.now();
+    if(now-last<ms)return;
+    last=now; fn(...args);
+  };
+}
+
+// ── Join ──────────────────────────────────────────────
+function joinGame(){
+  myName  = document.getElementById("name-input").value.trim() || "Player";
+  myColor = COLORS[Math.floor(Math.random()*COLORS.length)];
+  document.getElementById("join-screen").style.display="none";
+  connect();
+}
+document.getElementById("name-input").addEventListener("keydown",e=>{
+  if(e.key==="Enter") joinGame();
+});
+
+// ── WebSocket ─────────────────────────────────────────
+function connect(){
+  const proto = PARTYKIT_HOST.startsWith("localhost") ? "ws" : "wss";
+  socket = new WebSocket(`${proto}://${PARTYKIT_HOST}/parties/main/room`);
+  socket.onopen = ()=>{ console.log("connected"); };
+
+  socket.onmessage = (e)=>{
+    const msg = JSON.parse(e.data);
+
+    if(msg.type==="init"){
+      myId = msg.id;
+      isSpectating = msg.spectating;
+      phase = msg.phase;
+      for(const [id,p] of Object.entries(msg.players)){
+        players[id] = p;
+        if(id!==myId) spawnOther(id, p);
+      }
+      updateLeaderboard(msg.leaderboard||[]);
+      updateHUD();
+      updateAlivePips();
+      if(isSpectating) document.getElementById("spec-banner").classList.add("show");
+      if(msg.phase==="playing"){
+        roundStartTime = msg.roundStartTime;
+        startTimer();
+      }
+      if(msg.phase==="intermission"){
+        document.getElementById("intermission-overlay").classList.add("show");
+      }
+    }
+
+    if(msg.type==="player_join"){
+      players[msg.id] = msg.player;
+      if(msg.id!==myId) spawnOther(msg.id, msg.player);
+      updateHUD(); updateAlivePips();
+    }
+
+    if(msg.type==="cursor" && msg.id!==myId){
+      if(!others[msg.id] && players[msg.id]) spawnOther(msg.id, players[msg.id]);
+      if(others[msg.id]){
+        others[msg.id].targetX = msg.x * window.innerWidth;
+        others[msg.id].targetY = msg.y * window.innerHeight;
+      }
+    }
+
+    if(msg.type==="leave"){
+      removeOther(msg.id);
+      delete players[msg.id];
+      updateHUD(); updateAlivePips();
+    }
+
+    if(msg.type==="intermission"){
+      phase = "intermission";
+      clearAllLasers();
+      stopTimer();
+      document.getElementById("center-msg").classList.remove("visible");
+      document.getElementById("elim-notice").classList.remove("show");
+      document.getElementById("intermission-overlay").classList.add("show");
+    }
+
+    if(msg.type==="round_start"){
+      phase = "playing";
+      roundStartTime = msg.time;
+      amAlive = !isSpectating;
+      document.getElementById("intermission-overlay").classList.remove("show");
+      document.getElementById("elim-notice").classList.remove("show");
+      document.getElementById("center-msg").classList.remove("visible");
+      // reset all players alive
+      for(const id in msg.players){
+        players[id] = msg.players[id];
+        if(others[id]) others[id].el.classList.remove("dead");
+      }
+      if(!isSpectating){
+        amAlive = true;
+        if(ownCursorEl) ownCursorEl.classList.remove("dead");
+      }
+      updateAlivePips();
+      if(!isSpectating) startTimer();
+      showMessage("Laser Dodge", "Dodge the lasers!", 2000);
+    }
+
+    if(msg.type==="laser_warn"){
+      showWarning(msg.laser);
+    }
+
+    if(msg.type==="laser_fire"){
+      clearWarning(msg.laser.id);
+      showLaser(msg.laser);
+    }
+
+    if(msg.type==="laser_remove"){
+      removeLaser(msg.id);
+    }
+
+    if(msg.type==="lasers_move"){
+      for(const l of msg.lasers){
+        if(lasers[l.id]){
+          lasers[l.id].pos = l.pos;
+          applyLaserPos(lasers[l.id]);
+        }
+      }
+    }
+
+    if(msg.type==="clear_lasers"){
+      clearAllLasers();
+    }
+
+    if(msg.type==="player_dead"){
+      if(players[msg.id]) players[msg.id].alive = false;
+      if(msg.id===myId){
+        amAlive = false;
+        stopTimer();
+        document.getElementById("elim-notice").classList.add("show");
+        if(ownCursorEl) ownCursorEl.classList.add("dead");
+      } else if(others[msg.id]){
+        others[msg.id].el.classList.add("dead");
+      }
+      updateAlivePips();
+      updateLeaderboard(msg.leaderboard||[]);
+    }
+
+    if(msg.type==="round_end"){
+      phase = "waiting";
+      stopTimer();
+      clearAllLasers();
+      const isMe = msg.winner===myId;
+      showMessage(
+        isMe ? "You Win!" : `${msg.winnerName} Wins!`,
+        "Intermission soon...", 0
+      );
+      updateLeaderboard(msg.leaderboard||[]);
+      // re-enable spectators for next round
+      isSpectating = false;
+      document.getElementById("spec-banner").classList.remove("show");
+    }
+  };
+
+  socket.onclose = ()=> setTimeout(connect, 2000);
+}
+
+// ── Send position ─────────────────────────────────────
+const sendPos = throttle((x,y)=>{
+  if(socket?.readyState===WebSocket.OPEN){
+    socket.send(JSON.stringify({
+      type:"cursor", x:x/window.innerWidth, y:y/window.innerHeight,
+      name:myName, color:myColor
+    }));
+  }
+},33);
+
+document.addEventListener("mousemove",(e)=>{
+  renderOwnCursor(e.clientX, e.clientY);
+  sendPos(e.clientX, e.clientY);
+});
+
+// ── Own cursor ────────────────────────────────────────
+function renderOwnCursor(px,py){
+  if(!ownCursorEl){
+    ownCursorEl = buildCursorEl(myName, myColor);
+    document.getElementById("arena").appendChild(ownCursorEl);
+  }
+  ownCursorEl.style.left = px+"px";
+  ownCursorEl.style.top  = py+"px";
+}
+
+// ── Other cursors ─────────────────────────────────────
+function spawnOther(id, data){
+  if(others[id]) return;
+  const el = buildCursorEl(data.name||"?", data.color||"#888");
+  if(!data.alive) el.classList.add("dead");
+  document.getElementById("arena").appendChild(el);
+  const sx = 0.5*window.innerWidth, sy = 0.5*window.innerHeight;
+  others[id] = { el, currentX:sx, currentY:sy, targetX:sx, targetY:sy };
+}
+
+function removeOther(id){
+  others[id]?.el.remove();
+  delete others[id];
+}
+
+function buildCursorEl(name, color){
+  const w = document.createElement("div");
+  w.className = "cursor-wrap";
+  w.innerHTML = `
+    <svg width="20" height="24" viewBox="0 0 20 24" fill="none">
+      <path d="M4 2 L4 18 L7.5 14.5 L10.5 21 L13 20 L10 13.5 L15 13.5 Z"
+            fill="${color}" stroke="white" stroke-width="1.2" stroke-linejoin="round"/>
+    </svg>
+    <div class="cursor-label" style="color:${color}">${name}</div>`;
+  return w;
+}
+
+// ── Lasers (display only) ─────────────────────────────
+function showWarning(laser){
+  const el = document.createElement("div");
+  el.className = "laser-warning";
+  applyStripeStyle(el, laser.axis, laser.pos);
+  document.getElementById("arena").appendChild(el);
+  warnings[laser.id] = el;
+}
+
+function showLaser(laser){
+  const el = document.createElement("div");
+  el.className = "laser-active";
+  applyStripeStyle(el, laser.axis, laser.pos);
+  document.getElementById("arena").appendChild(el);
+  lasers[laser.id] = { el, axis:laser.axis, pos:laser.pos };
+}
+
+function applyStripeStyle(el, axis, pos){
+  const px = axis==="h"
+    ? pos * window.innerHeight
+    : pos * window.innerWidth;
+  if(axis==="h"){
+    el.style.cssText = `left:0;right:0;top:${px}px;height:${LASER_THICK}px;`;
+  } else {
+    el.style.cssText = `top:0;bottom:0;left:${px}px;width:${LASER_THICK}px;`;
+  }
+}
+
+function applyLaserPos(laser){
+  if(!laser.el) return;
+  const px = laser.axis==="h"
+    ? laser.pos * window.innerHeight
+    : laser.pos * window.innerWidth;
+  if(laser.axis==="h") laser.el.style.top  = px+"px";
+  else                  laser.el.style.left = px+"px";
+}
+
+function clearWarning(id){ warnings[id]?.remove(); delete warnings[id]; }
+function removeLaser(id) { lasers[id]?.el.remove();  delete lasers[id];  }
+function clearAllLasers(){
+  for(const id in lasers)   removeLaser(id);
+  for(const id in warnings) clearWarning(id);
+}
+
+// ── Timer ─────────────────────────────────────────────
+function startTimer(){
+  stopTimer();
+  timerInterval = setInterval(()=>{
+    if(!amAlive) return stopTimer();
+    const s = ((Date.now()-roundStartTime)/1000).toFixed(1);
+    document.getElementById("hud-timer").textContent = `${s}s`;
+  }, 100);
+}
+function stopTimer(){ clearInterval(timerInterval); timerInterval=null; }
+
+// ── HUD ───────────────────────────────────────────────
+function updateHUD(){
+  const count = Object.keys(players).length;
+  document.getElementById("hud-left").textContent = `${count} player${count!==1?"s":""}`;
+}
+
+function updateAlivePips(){
+  const bar = document.getElementById("alive-bar");
+  bar.innerHTML = "";
+  for(const [id,p] of Object.entries(players)){
+    const pip = document.createElement("div");
+    pip.className = "alive-pip" + (p.alive ? "" : " dead");
+    pip.style.background = p.color||"#888";
+    bar.appendChild(pip);
+  }
+}
+
+// ── Leaderboard ───────────────────────────────────────
+function updateLeaderboard(lb){
+  const el = document.getElementById("lb-rows");
+  el.innerHTML = lb.slice(0,3).map(e=>`
+    <div class="lb-row">
+      <span class="lb-name">${e.name}</span>
+      <span class="lb-time">${(e.best/1000).toFixed(1)}s</span>
+      <span class="lb-dot" style="background:${e.color}"></span>
+    </div>`).join("");
+}
+
+// ── Messages ──────────────────────────────────────────
+let msgTO = null;
+function showMessage(title, sub, autoClear){
+  document.getElementById("msg-title").textContent = title;
+  document.getElementById("msg-sub").textContent   = sub;
+  document.getElementById("center-msg").classList.add("visible");
+  if(msgTO) clearTimeout(msgTO);
+  if(autoClear>0) msgTO = setTimeout(()=>{
+    document.getElementById("center-msg").classList.remove("visible");
+  }, autoClear);
+}
+</script>
+</body>
+</html>
