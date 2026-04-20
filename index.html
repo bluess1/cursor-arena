@@ -7,379 +7,858 @@
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
     body{
-      width:100vw;min-height:100vh;
+      width:100vw;height:100vh;overflow:hidden;
       background:#0a0a0f;font-family:'Courier New',monospace;
-      color:white;display:flex;flex-direction:column;
-      align-items:center;justify-content:center;
-      user-select:none;overflow:hidden;
+      color:white;user-select:none;cursor:none;
     }
 
-    /* ── Join ── */
-    #join{
-      position:fixed;inset:0;background:#0a0a0f;z-index:99;
-      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+    /* ═══════════════════════════════
+       JOIN SCREEN
+    ═══════════════════════════════ */
+    #join-screen{
+      position:fixed;inset:0;z-index:200;background:#0a0a0f;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
     }
-    #join h1{font-size:26px;letter-spacing:3px;color:#999;}
-    #join p{font-size:12px;color:#444;letter-spacing:1px;}
-    #join input{
+    #join-screen h1{font-size:26px;letter-spacing:3px;color:#999;}
+    #join-screen p{font-size:12px;color:#444;letter-spacing:1px;}
+    #join-screen input{
       background:#111118;border:1px solid #222230;color:white;
       padding:9px 16px;border-radius:6px;font-size:15px;
-      outline:none;width:210px;text-align:center;font-family:inherit;
+      outline:none;width:210px;text-align:center;font-family:inherit;cursor:text;
     }
-    #join input:focus{border-color:#333348;}
-    #join button{
+    #join-screen input:focus{border-color:#333348;}
+    #join-screen button{
       background:#18182a;color:#777;border:1px solid #252538;
       padding:9px 28px;border-radius:6px;font-size:13px;
       cursor:pointer;font-family:inherit;letter-spacing:1.5px;
     }
-    #join button:hover{background:#202035;color:#aaa;}
+    #join-screen button:hover{background:#202035;color:#aaa;}
 
-    /* ── Main ── */
-    #main{
-      display:none;flex-direction:column;align-items:center;
-      gap:24px;width:100%;max-width:480px;padding:24px;
+    /* ═══════════════════════════════
+       VOTING SCREEN
+    ═══════════════════════════════ */
+    #vote-screen{
+      position:fixed;inset:0;z-index:100;background:#0a0a0f;
+      display:none;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+      padding:24px;
     }
-    #main.show{display:flex;}
+    #vote-screen.show{display:flex;}
 
-    .section-label{font-size:10px;color:#333;letter-spacing:2.5px;text-transform:uppercase;text-align:center;}
+    .vlabel{font-size:10px;color:#333;letter-spacing:2.5px;text-transform:uppercase;text-align:center;}
 
-    /* Timer */
-    #timer-wrap{width:100%;}
-    #timer-bar-bg{width:100%;height:3px;background:#151520;border-radius:2px;}
-    #timer-bar{height:3px;background:#404060;border-radius:2px;width:100%;transition:width 0.2s linear;}
-    #timer-txt{font-size:11px;color:#444;text-align:center;margin-top:6px;letter-spacing:1px;}
+    #vote-status{font-size:12px;color:#444;letter-spacing:0.5px;min-height:16px;text-align:center;}
 
-    /* Vote cards */
-    #vote-cards{display:flex;gap:12px;width:100%;}
-    .vote-card{
+    #timer-wrap{width:100%;max-width:460px;}
+    #timer-bg{width:100%;height:3px;background:#111118;border-radius:2px;}
+    #timer-fill{height:3px;background:#2a2a45;border-radius:2px;width:100%;transition:width 0.1s linear;}
+    #timer-txt{font-size:11px;color:#333;text-align:center;margin-top:5px;letter-spacing:1px;}
+
+    #vote-cards{display:flex;gap:12px;width:100%;max-width:460px;}
+    .vcard{
       flex:1;padding:18px 14px 14px;border-radius:10px;
       background:#0e0e1a;border:2px solid #1a1a2a;
       cursor:pointer;text-align:center;position:relative;
       transition:border-color 0.15s,background 0.15s,transform 0.1s;
     }
-    .vote-card:hover{background:#131320;transform:translateY(-2px);}
-    .vote-card.selected{border-color:var(--c);}
-    .vote-card.selected .card-name{color:var(--c);}
-    .vote-card.winning .vote-pct{color:var(--c);}
-    .vote-card .card-icon{font-size:26px;margin-bottom:8px;}
-    .vote-card .card-name{font-size:13px;letter-spacing:1.5px;color:#777;font-weight:700;margin-bottom:6px;}
-    .vote-card .card-desc{font-size:11px;color:#3a3a50;line-height:1.5;margin-bottom:10px;}
-    .vote-card .vote-bar-wrap{height:2px;background:#151520;border-radius:2px;margin-top:8px;}
-    .vote-card .vote-bar-fill{height:2px;border-radius:2px;background:var(--c);width:0%;transition:width 0.3s;}
-    .vote-card .vote-pct{font-size:10px;color:#444;margin-top:4px;letter-spacing:0.5px;}
+    .vcard:hover{background:#131320;transform:translateY(-2px);}
+    .vcard.selected{border-color:var(--c);}
+    .vcard.selected .vcard-name{color:var(--c);}
+    .vcard.winning .vcount{color:var(--c);}
+    .vcard-icon{font-size:26px;margin-bottom:8px;}
+    .vcard-name{font-size:13px;letter-spacing:1.5px;color:#666;font-weight:700;margin-bottom:6px;}
+    .vcard-desc{font-size:11px;color:#2e2e44;line-height:1.5;margin-bottom:10px;}
+    .vbar-wrap{height:2px;background:#111118;border-radius:2px;margin-top:8px;}
+    .vbar-fill{height:2px;border-radius:2px;background:var(--c);width:0%;transition:width 0.3s;}
+    .vcount{font-size:10px;color:#333;margin-top:4px;}
 
-    /* Result */
-    #result{display:none;flex-direction:column;align-items:center;gap:8px;text-align:center;}
-    #result.show{display:flex;}
-    #result .res-label{font-size:10px;color:#444;letter-spacing:2.5px;text-transform:uppercase;}
-    #result .res-name{font-size:30px;font-weight:700;letter-spacing:2px;margin-top:4px;}
-    #result .res-countdown{font-size:11px;color:#333;margin-top:10px;letter-spacing:1.5px;}
+    #vote-result{display:none;flex-direction:column;align-items:center;gap:8px;text-align:center;}
+    #vote-result.show{display:flex;}
+    #vres-name{font-size:28px;font-weight:700;letter-spacing:2px;}
+    #vres-cd{font-size:11px;color:#333;margin-top:6px;letter-spacing:1.5px;}
 
-    /* Status */
-    #status{font-size:11px;color:#333;letter-spacing:1px;text-align:center;min-height:16px;}
-
-    /* Players */
-    #player-list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;}
-    .player-chip{
-      display:flex;align-items:center;gap:5px;
-      padding:3px 9px;border-radius:10px;
-      background:#0e0e1a;border:1px solid #1a1a28;font-size:11px;color:#555;
+    #vote-players{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:460px;}
+    .pchip{
+      display:flex;align-items:center;gap:5px;padding:3px 9px;
+      border-radius:10px;background:#0e0e1a;border:1px solid #1a1a28;
+      font-size:11px;color:#555;
     }
-    .player-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+    .pdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 
-    /* Connecting indicator */
-    #conn-state{
-      position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
-      font-size:10px;color:#2a2a3a;letter-spacing:1px;
+    /* ═══════════════════════════════
+       GAME LAYER (laser + mansion share this)
+    ═══════════════════════════════ */
+    #game-screen{
+      position:fixed;inset:0;z-index:50;
+      display:none;
+    }
+    #game-screen.show{display:block;}
+
+    /* Canvases */
+    #laser-canvas{position:absolute;inset:0;display:none;}
+    #laser-canvas.show{display:block;}
+    #maze-canvas{position:absolute;inset:0;display:none;}
+    #maze-canvas.show{display:block;}
+    #light-canvas{position:absolute;inset:0;display:none;}
+    #light-canvas.show{display:block;}
+
+    /* Laser DOM overlays */
+    #laser-overlays{position:absolute;inset:0;pointer-events:none;}
+
+    /* ═══════════════════════════════
+       SHARED HUD
+    ═══════════════════════════════ */
+    #hud{
+      position:fixed;top:0;left:0;right:0;padding:10px 16px;
+      display:flex;justify-content:space-between;align-items:center;
+      z-index:150;pointer-events:none;
+    }
+    #hud-left{font-size:11px;color:#444;}
+    #hud-game{font-size:10px;color:#2a2a40;letter-spacing:2px;text-transform:uppercase;}
+    #hud-timer{font-size:12px;color:#444;font-variant-numeric:tabular-nums;}
+
+    #hud-role{
+      position:fixed;top:10px;left:50%;transform:translateX(-50%);
+      font-size:11px;padding:3px 12px;border-radius:10px;letter-spacing:1px;
+      z-index:150;pointer-events:none;display:none;
+    }
+    #hud-role.show{display:block;}
+    #hud-role.hunter{background:rgba(200,160,50,0.1);border:1px solid rgba(200,160,50,0.25);color:#c8a040;}
+    #hud-role.hider{background:rgba(80,130,220,0.1);border:1px solid rgba(80,130,220,0.25);color:#6090d8;}
+
+    /* Center message */
+    #center-msg{
+      position:fixed;inset:0;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      pointer-events:none;z-index:160;
+    }
+    #msg-title{font-size:42px;font-weight:700;opacity:0;transition:opacity 0.3s;text-align:center;letter-spacing:2px;}
+    #msg-sub{font-size:14px;color:#888;margin-top:8px;opacity:0;transition:opacity 0.3s;text-align:center;}
+    #center-msg.show #msg-title,
+    #center-msg.show #msg-sub{opacity:1;}
+
+    /* Notices */
+    .notice{
+      position:fixed;top:36px;left:50%;transform:translateX(-50%);
+      display:none;padding:4px 14px;border-radius:16px;
+      font-size:11px;z-index:160;pointer-events:none;letter-spacing:1px;
+    }
+    .notice.show{display:block;}
+    #n-dead{background:rgba(200,60,60,0.1);border:1px solid rgba(200,60,60,0.25);color:#c04040;}
+    #n-caught{background:rgba(200,60,60,0.1);border:1px solid rgba(200,60,60,0.25);color:#c04040;}
+    #n-spec{background:rgba(200,160,50,0.07);border:1px solid rgba(200,160,50,0.15);color:#907030;
+      top:0;border-radius:0;width:100%;text-align:center;left:0;transform:none;}
+
+    /* Pips */
+    #pip-bar{
+      position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+      display:flex;gap:7px;z-index:150;pointer-events:none;
+    }
+    .pip{width:8px;height:8px;border-radius:50%;opacity:0.85;transition:opacity 0.3s,transform 0.3s;}
+    .pip.dead{opacity:0.15;transform:scale(0.7);}
+
+    /* Leaderboard */
+    #lb{position:fixed;bottom:40px;right:14px;z-index:150;pointer-events:none;text-align:right;}
+    #lb-title{font-size:9px;color:#2a2a2a;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;}
+    .lb-row{font-size:11px;color:#444;line-height:1.8;display:flex;align-items:center;gap:6px;justify-content:flex-end;}
+    .lb-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+    .lb-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lb-stat{color:#333;font-variant-numeric:tabular-nums;}
+
+    /* Laser styles */
+    @keyframes warnPulse{
+      from{border-color:rgba(255,60,60,0.2);background:rgba(255,60,60,0.04);}
+      to{border-color:rgba(255,60,60,0.8);background:rgba(255,60,60,0.14);}
+    }
+    .laser-warn{
+      position:absolute;pointer-events:none;
+      background:rgba(255,60,60,0.08);border:2px dashed rgba(255,60,60,0.5);
+      animation:warnPulse 0.35s ease-in-out infinite alternate;
+    }
+    .laser-active{
+      position:absolute;pointer-events:none;
+      background:#ff3c3c;box-shadow:0 0 8px rgba(255,60,60,0.35);
     }
   </style>
 </head>
 <body>
 
-<div id="join">
+<!-- JOIN -->
+<div id="join-screen">
   <h1>CURSOR GAMES</h1>
   <p>minigames · multiplayer · mayhem</p>
   <input id="name-input" maxlength="16" placeholder="your name"/>
-  <button id="join-btn" onclick="joinLobby()">Enter →</button>
+  <button onclick="doJoin()">Play →</button>
 </div>
 
-<div id="main">
-  <div class="section-label" id="phase-label">vote for next game</div>
-
-  <div id="status"></div>
+<!-- VOTE -->
+<div id="vote-screen">
+  <div class="vlabel" id="vote-label">vote for next game</div>
+  <div id="vote-status"></div>
 
   <div id="timer-wrap">
-    <div id="timer-bar-bg"><div id="timer-bar"></div></div>
+    <div id="timer-bg"><div id="timer-fill"></div></div>
     <div id="timer-txt">—</div>
   </div>
 
   <div id="vote-cards">
-    <div class="vote-card" id="card-laser" style="--c:#e74c3c" onclick="castVote('laser')">
-      <div class="card-icon">⚡</div>
-      <div class="card-name">LASER DODGE</div>
-      <div class="card-desc">Dodge the lasers.<br>Last cursor standing wins.</div>
-      <div class="vote-bar-wrap"><div class="vote-bar-fill" id="bar-laser"></div></div>
-      <div class="vote-pct" id="pct-laser">0 votes</div>
+    <div class="vcard" id="vc-laser" style="--c:#e74c3c" onclick="castVote('laser')">
+      <div class="vcard-icon">⚡</div>
+      <div class="vcard-name">LASER DODGE</div>
+      <div class="vcard-desc">Dodge the lasers.<br>Last cursor standing wins.</div>
+      <div class="vbar-wrap"><div class="vbar-fill" id="vb-laser"></div></div>
+      <div class="vcount" id="vn-laser">0 votes</div>
     </div>
-    <div class="vote-card" id="card-mansion" style="--c:#c8a040" onclick="castVote('mansion')">
-      <div class="card-icon">👻</div>
-      <div class="card-name">MANSION MAZE</div>
-      <div class="card-desc">One hunter. Everyone<br>else hides in the dark.</div>
-      <div class="vote-bar-wrap"><div class="vote-bar-fill" id="bar-mansion"></div></div>
-      <div class="vote-pct" id="pct-mansion">0 votes</div>
+    <div class="vcard" id="vc-mansion" style="--c:#c8a040" onclick="castVote('mansion')">
+      <div class="vcard-icon">👻</div>
+      <div class="vcard-name">MANSION MAZE</div>
+      <div class="vcard-desc">One hunter. Everyone<br>else hides in the dark.</div>
+      <div class="vbar-wrap"><div class="vbar-fill" id="vb-mansion"></div></div>
+      <div class="vcount" id="vn-mansion">0 votes</div>
     </div>
   </div>
 
-  <div id="result">
-    <div class="res-label">game selected</div>
-    <div class="res-name" id="res-name"></div>
-    <div class="res-countdown" id="res-countdown"></div>
+  <div id="vote-result">
+    <div class="vlabel">game selected</div>
+    <div id="vres-name"></div>
+    <div id="vres-cd"></div>
   </div>
 
-  <div>
-    <div class="section-label" style="margin-bottom:10px;">players</div>
-    <div id="player-list"></div>
-  </div>
+  <div id="vote-players"></div>
 </div>
 
-<div id="conn-state">connecting…</div>
+<!-- GAME -->
+<div id="game-screen">
+  <canvas id="laser-canvas"></canvas>
+  <canvas id="maze-canvas"></canvas>
+  <canvas id="light-canvas"></canvas>
+  <div id="laser-overlays"></div>
+</div>
+
+<!-- HUD (always on top) -->
+<div id="hud">
+  <div id="hud-left">0 players</div>
+  <div id="hud-game"></div>
+  <div id="hud-timer"></div>
+</div>
+<div id="hud-role"></div>
+<div class="notice" id="n-spec">spectating — join next round</div>
+<div class="notice" id="n-dead">eliminated</div>
+<div class="notice" id="n-caught">caught!</div>
+<div id="center-msg"><div id="msg-title"></div><div id="msg-sub"></div></div>
+<div id="pip-bar"></div>
+<div id="lb"><div id="lb-title">Best Times</div><div id="lb-rows"></div></div>
 
 <script>
+// ═══════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════
 const PARTYKIT_HOST = "mousegame-party.bluess1.partykit.dev";
+const ROOM = "arena3";
 const COLORS = ["#e74c3c","#3498db","#2ecc71","#f39c12","#9b59b6","#1abc9c","#e67e22","#e91e63","#00bcd4","#ff5722"];
-const GAME_META = {
-  laser:   { name:"⚡ LASER DODGE",  url:"laser.html",   color:"#e74c3c" },
-  mansion: { name:"👻 MANSION MAZE", url:"mansion.html", color:"#c8a040" },
-};
 
+// Mansion constants
+const CELL=48, FOV=Math.PI*0.5, LIGHT=200, RAYS=160, WALL_PAD=7;
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
 let socket, myId, myName="", myColor="";
-let myVote = null;
-let voteEnd = 0;         // absolute ms timestamp
-let timerRAF = null;
-let countdownInterval = null;
-const players = {};
+let phase="waiting", currentGame=null, myRole=null;
+let amDead=false, amCaught=false, isSpectating=false;
+let myVote=null, voteEnd=0, timerRAF=null, voteResolved=false;
+let roundStartTime=0, timerInt=null, mazeSeed=0;
+let mouseX=window.innerWidth/2, mouseY=window.innerHeight/2;
+let aimAngle=0, prevMX=mouseX, prevMY=mouseY;
 
-// ── Restore session ────────────────────────────────────
-const stored = JSON.parse(sessionStorage.getItem('cgPlayer') || '{}');
-if (stored.name) document.getElementById('name-input').value = stored.name;
-if (stored.autoJoin && stored.name) {
-  // returning from a game — skip join screen
-  sessionStorage.setItem('cgPlayer', JSON.stringify({...stored, autoJoin:false}));
-  window.addEventListener('load', () => {
-    myName  = stored.name;
-    myColor = stored.color || COLORS[0];
-    document.getElementById('join').style.display = 'none';
-    document.getElementById('main').classList.add('show');
-    connect();
-  });
+const players={}, cursors={};
+
+// Mansion maze
+let COLS=0, ROWS=0, wallH=[], wallV=[], wallSegs=[];
+
+// Laser DOM elements
+const laserEls={}, warnEls={};
+
+// ═══════════════════════════════════════════
+//  CANVASES
+// ═══════════════════════════════════════════
+const laserC = document.getElementById('laser-canvas');
+const mazeC  = document.getElementById('maze-canvas');
+const lightC = document.getElementById('light-canvas');
+const lCtx2d = laserC.getContext('2d');
+const mCtx   = mazeC.getContext('2d');
+const lCtx   = lightC.getContext('2d');
+
+function resizeAll(){
+  const W=window.innerWidth, H=window.innerHeight;
+  laserC.width=mazeC.width=lightC.width=W;
+  laserC.height=mazeC.height=lightC.height=H;
 }
+resizeAll();
+window.addEventListener('resize', ()=>{ resizeAll(); if(mazeSeed&&currentGame==='mansion') buildAndDraw(mazeSeed); });
 
-// ── Join ───────────────────────────────────────────────
-function joinLobby() {
-  const nameEl = document.getElementById('name-input');
-  myName  = nameEl.value.trim() || 'Player';
-  myColor = stored.color || COLORS[Math.floor(Math.random() * COLORS.length)];
-  sessionStorage.setItem('cgPlayer', JSON.stringify({name:myName, color:myColor}));
-  document.getElementById('join').style.display = 'none';
-  document.getElementById('main').classList.add('show');
+// ═══════════════════════════════════════════
+//  JOIN
+// ═══════════════════════════════════════════
+document.getElementById('name-input').addEventListener('keydown',e=>{ if(e.key==='Enter') doJoin(); });
+function doJoin(){
+  myName = document.getElementById('name-input').value.trim() || 'Player';
+  myColor = COLORS[Math.floor(Math.random()*COLORS.length)];
+  document.getElementById('join-screen').style.display='none';
   connect();
+  renderLoop();
 }
-document.getElementById('name-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') joinLobby();
-});
 
-// ── WebSocket ──────────────────────────────────────────
-function connect() {
-  const proto = PARTYKIT_HOST.startsWith('localhost') ? 'ws' : 'wss';
-  socket = new WebSocket(`${proto}://${PARTYKIT_HOST}/parties/main/arena`);
-
+// ═══════════════════════════════════════════
+//  WEBSOCKET
+// ═══════════════════════════════════════════
+function connect(){
+  const proto = location.protocol==='https:'?'wss':'ws';
+  socket = new WebSocket(`${proto}://${PARTYKIT_HOST}/parties/main/${ROOM}`);
   socket.onopen = () => {
-    document.getElementById('conn-state').textContent = '';
-    socket.send(JSON.stringify({ type: 'hello', name: myName, color: myColor }));
+    socket.send(JSON.stringify({type:'hello', name:myName, color:myColor}));
   };
-
-  socket.onmessage = e => {
-    handle(JSON.parse(e.data));
-  };
-
-  socket.onclose = () => {
-    document.getElementById('conn-state').textContent = 'reconnecting…';
-    setTimeout(connect, 2000);
-  };
-
-  socket.onerror = () => {
-    document.getElementById('conn-state').textContent = 'connection error';
-  };
+  socket.onmessage = e => handle(JSON.parse(e.data));
+  socket.onclose = () => setTimeout(connect, 2000);
 }
 
-// ── Vote ───────────────────────────────────────────────
-function castVote(game) {
-  if (myVote) return;
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  myVote = game;
-  document.getElementById(`card-${game}`).classList.add('selected');
-  socket.send(JSON.stringify({ type: 'vote', game }));
-}
+// ═══════════════════════════════════════════
+//  MESSAGE HANDLER
+// ═══════════════════════════════════════════
+function handle(msg){
+  if(msg.type==='init'){
+    myId=msg.id; phase=msg.phase; currentGame=msg.currentGame;
+    isSpectating=msg.spectating; mazeSeed=msg.mazeSeed||0;
+    for(const[id,p]of Object.entries(msg.players)) players[id]=p;
+    Object.assign(cursors, msg.cursors||{});
+    updateLB(msg.leaderboard||[]);
+    updateHUD(); updatePips(); renderVotePlayers();
 
-// ── Message handler ────────────────────────────────────
-function handle(msg) {
-
-  if (msg.type === 'init') {
-    myId = msg.id;
-    for (const [id, p] of Object.entries(msg.players)) players[id] = p;
-    renderPlayers();
-
-    if (msg.phase === 'playing') {
-      // Game running — go there now
-      redirectTo(msg.currentGame);
-      return;
+    if(phase==='waiting'){
+      showVoteScreen();
+      setVoteStatus('waiting for players…');
     }
-
-    if (msg.phase === 'voting') {
-      // Mid-vote join — use server's voteEnd timestamp
-      voteEnd = msg.voteEnd || (Date.now() + 10000);
+    if(phase==='voting'){
+      showVoteScreen();
+      voteEnd=msg.voteEnd||(Date.now()+10000);
       startTimerBar();
-      setStatus('');
     }
-
-    if (msg.phase === 'waiting') {
-      setStatus('waiting for players…');
-      setTimerBar(0, '—');
+    if(phase==='playing'){
+      showGameScreen(currentGame);
+      if(currentGame==='mansion'&&mazeSeed) buildAndDraw(mazeSeed);
+      roundStartTime=msg.roundStartTime; startTimer();
+      if(isSpectating) showNotice('spec');
     }
   }
 
-  if (msg.type === 'player_join') {
-    players[msg.id] = msg.player;
-    renderPlayers();
+  if(msg.type==='player_join'){
+    players[msg.id]=msg.player;
+    updateHUD(); updatePips(); renderVotePlayers();
   }
 
-  if (msg.type === 'leave') {
-    delete players[msg.id];
-    renderPlayers();
+  if(msg.type==='leave'){
+    delete players[msg.id]; delete cursors[msg.id];
+    updateHUD(); updatePips(); renderVotePlayers();
   }
 
-  if (msg.type === 'voting_start') {
-    // New vote round
-    myVote = null;
-    redirected = false;
-    voteEnd = msg.voteEnd;
-    document.getElementById('card-laser').classList.remove('selected', 'winning');
-    document.getElementById('card-mansion').classList.remove('selected', 'winning');
-    document.getElementById('result').classList.remove('show');
-    document.getElementById('vote-cards').style.display = 'flex';
-    document.getElementById('phase-label').textContent = 'vote for next game';
-    setStatus('');
-    updateVoteBars({ laser: 0, mansion: 0 }, 0);
+  if(msg.type==='cursor'&&msg.id!==myId){
+    cursors[msg.id]={x:msg.x, y:msg.y};
+    if(players[msg.id]){players[msg.id].name=msg.name; players[msg.id].color=msg.color;}
+  }
+
+  // ── Voting ──
+  if(msg.type==='voting_start'){
+    phase='voting'; myVote=null; voteResolved=false;
+    voteEnd=msg.voteEnd;
+    showVoteScreen();
+    document.getElementById('vc-laser').classList.remove('selected','winning');
+    document.getElementById('vc-mansion').classList.remove('selected','winning');
+    document.getElementById('vote-result').classList.remove('show');
+    document.getElementById('vote-cards').style.display='flex';
+    document.getElementById('vote-label').textContent='vote for next game';
+    setVoteStatus('');
+    updateVoteBars({laser:0,mansion:0},0);
     startTimerBar();
   }
 
-  if (msg.type === 'vote_update') {
-    updateVoteBars(msg.counts, msg.total);
+  if(msg.type==='vote_update') updateVoteBars(msg.counts, msg.total);
+
+  if(msg.type==='vote_result'){
+    voteResolved=true;
+    cancelAnimationFrame(timerRAF);
+    document.getElementById('timer-fill').style.width='0%';
+    document.getElementById('vote-cards').style.display='none';
+    const colors={laser:'#e74c3c',mansion:'#c8a040'};
+    const names={laser:'⚡ LASER DODGE',mansion:'👻 MANSION MAZE'};
+    const el=document.getElementById('vres-name');
+    el.textContent=names[msg.winner]||msg.winner;
+    el.style.color=colors[msg.winner]||'#fff';
+    document.getElementById('vote-result').classList.add('show');
+    document.getElementById('vote-label').textContent='game selected';
+    // countdown
+    let t=3;
+    document.getElementById('vres-cd').textContent=`starting in ${t}s`;
+    const cd=setInterval(()=>{
+      t--;
+      document.getElementById('vres-cd').textContent=t>0?`starting in ${t}s`:'get ready!';
+      if(t<=0) clearInterval(cd);
+    },1000);
   }
 
-  if (msg.type === 'round_end') {
-    const meta = GAME_META[msg.game] || {};
-    let txt = '';
-    if (msg.winnerRole === 'hunter')   txt = `${msg.winnerName} caught everyone`;
-    else if (msg.winnerRole === 'survivor') txt = `${msg.winnerName} survived`;
-    else txt = `${msg.winnerName} wins`;
-    setStatus(txt);
+  if(msg.type==='round_start'){
+    phase='playing'; currentGame=msg.game; mazeSeed=msg.mazeSeed||0;
+    roundStartTime=msg.time; amDead=false; amCaught=false;
+    isSpectating=false; myRole=null;
+    for(const[id,p]of Object.entries(msg.players)) players[id]=p;
+    hideAllNotices();
+    hideMsg();
+    hideRoleBadge();
+    updateHUD(); updatePips();
+    showGameScreen(msg.game);
+    if(msg.game==='mansion') buildAndDraw(mazeSeed);
+    startTimer();
+    showMsg(msg.game==='laser'?'⚡ Laser Dodge':'👻 Mansion Maze',
+      msg.game==='laser'?'Dodge the lasers!':'Hide from the hunter!', 2500);
   }
 
-  if (msg.type === 'vote_result') {
-    showResult(msg.winner, msg.counts);
+  if(msg.type==='role_assigned'){
+    myRole=msg.role;
+    showRoleBadge(msg.role);
+    showMsg(
+      msg.role==='hunter'?'👻 You Are The Hunter':'🫥 Hide!',
+      msg.role==='hunter'?'Find hiders with your flashlight':'Stay out of the light',
+      3000
+    );
   }
 
-  if (msg.type === 'round_start') {
-    redirectTo(msg.game);
+  // ── Laser events ──
+  if(msg.type==='laser_warn') addLaserWarn(msg.laser);
+  if(msg.type==='laser_fire'){ removeWarn(msg.laser.id); addLaserActive(msg.laser); }
+  if(msg.type==='laser_remove') removeLaser(msg.id);
+  if(msg.type==='lasers_move') moveLasers(msg.lasers);
+  if(msg.type==='clear_lasers') clearAllLasers();
+
+  // ── Player events ──
+  if(msg.type==='player_dead'){
+    if(players[msg.id]) players[msg.id].alive=false;
+    if(msg.id===myId){ amDead=true; stopTimer(); showNotice('dead'); }
+    updatePips(); updateLB(msg.leaderboard||[]);
+  }
+
+  if(msg.type==='player_caught'){
+    if(players[msg.id]) players[msg.id].alive=false;
+    if(msg.id===myId){ amCaught=true; stopTimer(); showNotice('caught'); }
+    updatePips(); updateLB(msg.leaderboard||[]);
+  }
+
+  if(msg.type==='round_end'){
+    phase='waiting'; stopTimer(); clearAllLasers();
+    const isMe=msg.winner===myId;
+    let title,sub;
+    if(msg.game==='laser'){
+      title=isMe?'You Survived!':msg.winnerName+' Wins!';
+      sub='Next game vote starting soon…';
+    } else {
+      if(msg.winnerRole==='hunter'){title=isMe?'You Caught Them All!':'Hunter Wins!';sub=msg.winnerName+' caught every hider';}
+      else{title=isMe?'You Survived!':'A Hider Escaped!';sub=msg.winnerName+' outlasted the hunter';}
+    }
+    showMsg(title,sub,0);
+    updateLB(msg.leaderboard||[]);
   }
 }
 
-// ── Timer bar (driven by voteEnd absolute timestamp) ───
-function startTimerBar() {
+// ═══════════════════════════════════════════
+//  SCREEN SWITCHING
+// ═══════════════════════════════════════════
+function showVoteScreen(){
+  document.getElementById('vote-screen').classList.add('show');
+  document.getElementById('game-screen').classList.remove('show');
+  document.getElementById('hud-game').textContent='';
+  hideRoleBadge(); hideAllNotices();
+  document.getElementById('pip-bar').style.display='none';
+}
+
+function showGameScreen(game){
+  document.getElementById('vote-screen').classList.remove('show');
+  document.getElementById('game-screen').classList.add('show');
+  document.getElementById('pip-bar').style.display='flex';
+  document.getElementById('hud-game').textContent=game==='laser'?'⚡ laser dodge':'👻 mansion maze';
+
+  // Toggle canvases
+  laserC.classList.toggle('show', game==='laser');
+  const overlays=document.getElementById('laser-overlays');
+  overlays.style.display=game==='laser'?'block':'none';
+  mazeC.classList.toggle('show', game==='mansion');
+  lightC.classList.toggle('show', game==='mansion');
+}
+
+// ═══════════════════════════════════════════
+//  MOUSE
+// ═══════════════════════════════════════════
+document.addEventListener('mousemove', e=>{
+  let x=e.clientX, y=e.clientY;
+  if(currentGame==='mansion'&&COLS>0){
+    const c=wallClamp(x,y); x=c.x; y=c.y;
+  }
+  const dx=x-prevMX, dy=y-prevMY;
+  if(Math.abs(dx)>1||Math.abs(dy)>1) aimAngle=Math.atan2(dy,dx);
+  prevMX=x; prevMY=y;
+  mouseX=x; mouseY=y;
+  sendPos(x,y);
+});
+
+function throttle(fn,ms){let l=0;return(...a)=>{const n=Date.now();if(n-l<ms)return;l=n;fn(...a);};}
+const sendPos=throttle((x,y)=>{
+  if(socket?.readyState===WebSocket.OPEN)
+    socket.send(JSON.stringify({type:'cursor',x:x/window.innerWidth,y:y/window.innerHeight,name:myName,color:myColor}));
+},33);
+
+// ═══════════════════════════════════════════
+//  RENDER LOOP
+// ═══════════════════════════════════════════
+function renderLoop(){
+  if(currentGame==='laser') drawLaser();
+  if(currentGame==='mansion') drawMansion();
+  requestAnimationFrame(renderLoop);
+}
+
+// ═══════════════════════════════════════════
+//  LASER GAME RENDERING
+// ═══════════════════════════════════════════
+function drawLaser(){
+  const W=laserC.width, H=laserC.height;
+  lCtx2d.clearRect(0,0,W,H);
+  for(const[id,cur]of Object.entries(cursors)){
+    if(id===myId) continue;
+    const p=players[id]; if(!p) continue;
+    drawArrowCursor(lCtx2d, cur.x*W, cur.y*H, p.color||'#888', p.name||'?', !p.alive);
+  }
+  drawArrowCursor(lCtx2d, mouseX, mouseY, myColor, myName, amDead);
+}
+
+function drawArrowCursor(ctx,x,y,color,name,dead){
+  ctx.save();
+  ctx.globalAlpha=dead?0.22:1;
+  ctx.translate(x,y);
+  ctx.beginPath();
+  ctx.moveTo(0,0);ctx.lineTo(0,18);ctx.lineTo(4,14);
+  ctx.lineTo(7,21);ctx.lineTo(9,20);ctx.lineTo(6,13);
+  ctx.lineTo(11,13);ctx.closePath();
+  ctx.fillStyle=color; ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.4)';ctx.lineWidth=0.8;ctx.stroke();
+  ctx.globalAlpha=dead?0.22:0.9;
+  ctx.fillStyle=color;ctx.font='11px "Courier New",monospace';
+  ctx.textAlign='left';ctx.fillText(name,13,14);
+  ctx.restore();
+}
+
+// Laser DOM helpers
+function stripeCSS(axis,pos){
+  const W=window.innerWidth, H=window.innerHeight;
+  const THICK=28;
+  const px=axis==='h'?pos*H:pos*W;
+  return axis==='h'
+    ?`left:0;right:0;top:${px}px;height:${THICK}px;`
+    :`top:0;bottom:0;left:${px}px;width:${THICK}px;`;
+}
+function addLaserWarn(laser){
+  const el=document.createElement('div');
+  el.className='laser-warn';
+  el.style.cssText=stripeCSS(laser.axis,laser.pos);
+  document.getElementById('laser-overlays').appendChild(el);
+  warnEls[laser.id]=el;
+}
+function addLaserActive(laser){
+  const el=document.createElement('div');
+  el.className='laser-active';
+  el.style.cssText=stripeCSS(laser.axis,laser.pos);
+  document.getElementById('laser-overlays').appendChild(el);
+  laserEls[laser.id]={el,axis:laser.axis};
+}
+function moveLasers(updates){
+  for(const u of updates){
+    if(!laserEls[u.id]) continue;
+    const px=laserEls[u.id].axis==='h'?u.pos*window.innerHeight:u.pos*window.innerWidth;
+    if(laserEls[u.id].axis==='h') laserEls[u.id].el.style.top=px+'px';
+    else laserEls[u.id].el.style.left=px+'px';
+  }
+}
+function removeWarn(id){warnEls[id]?.remove();delete warnEls[id];}
+function removeLaser(id){laserEls[id]?.el.remove();delete laserEls[id];}
+function clearAllLasers(){
+  for(const id in laserEls) removeLaser(id);
+  for(const id in warnEls)  removeWarn(id);
+}
+
+// ═══════════════════════════════════════════
+//  MANSION GAME
+// ═══════════════════════════════════════════
+function makeRng(seed){
+  let s=seed>>>0;
+  return()=>{s+=0x6D2B79F5;let t=Math.imul(s^(s>>>15),1|s);t^=t+Math.imul(t^(t>>>7),61|t);return((t^(t>>>14))>>>0)/4294967296;};
+}
+
+function buildAndDraw(seed){
+  mazeSeed=seed;
+  const W=mazeC.width,H=mazeC.height;
+  COLS=Math.floor(W/CELL); ROWS=Math.floor(H/CELL);
+  const rng=makeRng(seed);
+  wallH=Array.from({length:ROWS+1},()=>Array(COLS).fill(1));
+  wallV=Array.from({length:ROWS},()=>Array(COLS+1).fill(1));
+  const vis=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  function carve(c,r){
+    vis[r][c]=1;
+    const dirs=[[0,-1],[1,0],[0,1],[-1,0]].sort(()=>rng()-0.5);
+    for(const[dc,dr]of dirs){
+      const nc=c+dc,nr=r+dr;
+      if(nc<0||nc>=COLS||nr<0||nr>=ROWS||vis[nr][nc]) continue;
+      if(dr===-1) wallH[r][c]=0; else if(dr===1) wallH[r+1][c]=0;
+      else if(dc===-1) wallV[r][c]=0; else wallV[r][c+1]=0;
+      carve(nc,nr);
+    }
+  }
+  carve(0,0);
+  wallSegs=[];
+  for(let r=0;r<=ROWS;r++) for(let c=0;c<COLS;c++)
+    if(r===0||r===ROWS||wallH[r][c]) wallSegs.push([c*CELL,r*CELL,(c+1)*CELL,r*CELL]);
+  for(let r=0;r<ROWS;r++) for(let c=0;c<=COLS;c++)
+    if(c===0||c===COLS||wallV[r][c]) wallSegs.push([c*CELL,r*CELL,c*CELL,(r+1)*CELL]);
+  drawMazeCanvas();
+}
+
+function drawMazeCanvas(){
+  const W=mazeC.width,H=mazeC.height;
+  mCtx.clearRect(0,0,W,H);
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    mCtx.fillStyle=(c+r)%2===0?'#0e0e1d':'#0c0c1a';
+    mCtx.fillRect(c*CELL,r*CELL,CELL,CELL);
+  }
+  mCtx.strokeStyle='#1e1e32';mCtx.lineWidth=2;mCtx.lineCap='square';
+  for(const[x1,y1,x2,y2]of wallSegs){mCtx.beginPath();mCtx.moveTo(x1,y1);mCtx.lineTo(x2,y2);mCtx.stroke();}
+  mCtx.strokeStyle='#28284a';mCtx.lineWidth=3;mCtx.strokeRect(1,1,W-2,H-2);
+  // Candle accents
+  [[1,1],[Math.floor(COLS*.55),2],[Math.floor(COLS*.28),Math.floor(ROWS*.6)]].forEach(([c,r])=>{
+    if(c>=COLS||r>=ROWS) return;
+    const x=c*CELL+CELL/2,y=r*CELL+CELL/2;
+    mCtx.fillStyle='#1e140a';mCtx.fillRect(x-2,y-5,4,9);
+    const g=mCtx.createRadialGradient(x,y-7,0,x,y-7,14);
+    g.addColorStop(0,'rgba(255,190,60,0.13)');g.addColorStop(1,'rgba(0,0,0,0)');
+    mCtx.fillStyle=g;mCtx.beginPath();mCtx.arc(x,y-7,14,0,Math.PI*2);mCtx.fill();
+  });
+}
+
+function wallClamp(px,py){
+  const W=window.innerWidth,H=window.innerHeight;
+  let x=Math.max(WALL_PAD,Math.min(W-WALL_PAD,px));
+  let y=Math.max(WALL_PAD,Math.min(H-WALL_PAD,py));
+  if(!COLS||!ROWS) return{x,y};
+  const c=Math.floor(x/CELL),r=Math.floor(y/CELL);
+  if(c<0||c>=COLS||r<0||r>=ROWS) return{x,y};
+  const cx=c*CELL,cy=r*CELL;
+  if(wallH[r]&&wallH[r][c]&&(y-cy)<WALL_PAD)           y=cy+WALL_PAD;
+  if(wallH[r+1]&&wallH[r+1][c]&&(cy+CELL-y)<WALL_PAD)  y=cy+CELL-WALL_PAD;
+  if(wallV[r]&&wallV[r][c]&&(x-cx)<WALL_PAD)            x=cx+WALL_PAD;
+  if(wallV[r]&&wallV[r][c+1]&&(cx+CELL-x)<WALL_PAD)    x=cx+CELL-WALL_PAD;
+  return{x,y};
+}
+
+function castRay(ox,oy,angle){
+  const dx=Math.cos(angle),dy=Math.sin(angle);
+  let minT=LIGHT+10;
+  for(const[x1,y1,x2,y2]of wallSegs){
+    const wx=x2-x1,wy=y2-y1,denom=dx*wy-dy*wx;
+    if(Math.abs(denom)<0.001) continue;
+    const t=((x1-ox)*wy-(y1-oy)*wx)/denom;
+    const u=((x1-ox)*dy-(y1-oy)*dx)/denom;
+    if(t>1&&u>=0&&u<=1&&t<minT) minT=t;
+  }
+  return Math.min(minT,LIGHT);
+}
+
+function drawMansion(){
+  const W=lightC.width,H=lightC.height;
+  lCtx.clearRect(0,0,W,H);
+
+  if(myRole==='hider'||myRole===null||isSpectating){
+    // Fully lit
+    for(const[id,cur]of Object.entries(cursors)){
+      if(id===myId) continue;
+      const p=players[id];if(!p) continue;
+      drawGhostCursor(lCtx,cur.x*W,cur.y*H,p.color||'#888',p.name||'?',p.role,!p.alive);
+    }
+    drawGhostCursor(lCtx,mouseX,mouseY,myColor,myName,myRole,amCaught);
+    return;
+  }
+
+  // Hunter: dark + flashlight
+  lCtx.fillStyle='rgba(6,5,18,0.92)';lCtx.fillRect(0,0,W,H);
+  const pts=[];
+  for(let i=0;i<=RAYS;i++){
+    const a=aimAngle-FOV/2+(FOV*i/RAYS),d=castRay(mouseX,mouseY,a);
+    pts.push({x:mouseX+Math.cos(a)*d,y:mouseY+Math.sin(a)*d});
+  }
+  lCtx.save();lCtx.globalCompositeOperation='destination-out';
+  const grad=lCtx.createRadialGradient(mouseX,mouseY,0,mouseX,mouseY,LIGHT);
+  grad.addColorStop(0,'rgba(255,225,140,0.9)');
+  grad.addColorStop(0.4,'rgba(255,200,100,0.6)');
+  grad.addColorStop(0.75,'rgba(255,170,60,0.2)');
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+  lCtx.fillStyle=grad;
+  lCtx.beginPath();lCtx.moveTo(mouseX,mouseY);
+  for(const p of pts) lCtx.lineTo(p.x,p.y);
+  lCtx.closePath();lCtx.fill();
+  const amb=lCtx.createRadialGradient(mouseX,mouseY,0,mouseX,mouseY,20);
+  amb.addColorStop(0,'rgba(255,230,150,0.4)');amb.addColorStop(1,'rgba(0,0,0,0)');
+  lCtx.fillStyle=amb;lCtx.beginPath();lCtx.arc(mouseX,mouseY,20,0,Math.PI*2);lCtx.fill();
+  lCtx.restore();
+
+  // Draw hiders in light
+  for(const[id,cur]of Object.entries(cursors)){
+    if(id===myId) continue;
+    const p=players[id];if(!p||p.role==='hunter') continue;
+    const px=cur.x*W,py=cur.y*H;
+    const da=Math.atan2(py-mouseY,px-mouseX);
+    let diff=da-aimAngle;while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;
+    const dist=Math.hypot(px-mouseX,py-mouseY);
+    if(Math.abs(diff)>FOV/2+0.05||dist>LIGHT) continue;
+    if(dist>castRay(mouseX,mouseY,da)+CELL*0.7) continue;
+    lCtx.save();lCtx.globalCompositeOperation='source-over';
+    lCtx.globalAlpha=Math.max(0.4,1-(dist/LIGHT)*0.5);
+    drawGhostCursor(lCtx,px,py,p.color||'#888',p.name||'?',p.role,!p.alive);
+    lCtx.restore();
+  }
+  // Hunter always visible
+  lCtx.save();lCtx.globalCompositeOperation='source-over';
+  drawGhostCursor(lCtx,mouseX,mouseY,myColor,myName,'hunter',false);
+  lCtx.restore();
+}
+
+function drawGhostCursor(ctx,x,y,color,name,role,faded){
+  ctx.save();ctx.translate(x,y);
+  if(faded) ctx.globalAlpha=0.22;
+  if(role==='hunter'){
+    ctx.fillStyle='#b89030';
+    rrect(ctx,-4,-3,20,6,3);ctx.fill();
+    ctx.fillStyle='#7a5f1a';rrect(ctx,-4,2,7,9,2);ctx.fill();
+    ctx.fillStyle=color;ctx.beginPath();ctx.arc(17,0,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,230,120,0.5)';ctx.beginPath();ctx.arc(17,0,3,0,Math.PI*2);ctx.fill();
+  } else {
+    ctx.fillStyle=color;
+    ctx.beginPath();ctx.arc(0,-5,7,Math.PI,0);
+    ctx.lineTo(7,5);ctx.quadraticCurveTo(5,3,0,6);ctx.quadraticCurveTo(-5,3,-7,5);ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,0.65)';
+    ctx.beginPath();ctx.arc(-2.5,-5,1.5,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(2.5,-5,1.5,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=faded?0.22:0.85;
+  ctx.fillStyle=color;ctx.font='11px "Courier New",monospace';ctx.textAlign='center';
+  ctx.fillText(name,role==='hunter'?7:0,20);
+  ctx.restore();
+}
+
+function rrect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+}
+
+// ═══════════════════════════════════════════
+//  VOTING UI
+// ═══════════════════════════════════════════
+function castVote(game){
+  if(myVote||voteResolved) return;
+  if(!socket||socket.readyState!==WebSocket.OPEN) return;
+  myVote=game;
+  document.getElementById(`vc-${game}`).classList.add('selected');
+  socket.send(JSON.stringify({type:'vote',game}));
+}
+
+function startTimerBar(){
   cancelAnimationFrame(timerRAF);
-  function tick() {
-    const rem = Math.max(0, voteEnd - Date.now());
-    const total = 10000;
-    const pct = (rem / total) * 100;
-    setTimerBar(pct, Math.ceil(rem / 1000) + 's');
-    if (rem > 0) timerRAF = requestAnimationFrame(tick);
-    else setTimerBar(0, '0s');
+  function tick(){
+    const rem=Math.max(0,voteEnd-Date.now());
+    const pct=(rem/10000)*100;
+    document.getElementById('timer-fill').style.width=pct+'%';
+    document.getElementById('timer-txt').textContent=Math.ceil(rem/1000)+'s';
+    if(rem>0) timerRAF=requestAnimationFrame(tick);
+    else{ document.getElementById('timer-fill').style.width='0%'; document.getElementById('timer-txt').textContent='0s'; }
   }
-  timerRAF = requestAnimationFrame(tick);
+  timerRAF=requestAnimationFrame(tick);
 }
 
-function setTimerBar(pct, label) {
-  document.getElementById('timer-bar').style.width = pct + '%';
-  document.getElementById('timer-txt').textContent = label;
+function updateVoteBars(counts,total){
+  const l=counts.laser||0, m=counts.mansion||0, sum=l+m||1;
+  document.getElementById('vb-laser').style.width=((l/sum)*100)+'%';
+  document.getElementById('vb-mansion').style.width=((m/sum)*100)+'%';
+  document.getElementById('vn-laser').textContent=l+(l===1?' vote':' votes');
+  document.getElementById('vn-mansion').textContent=m+(m===1?' vote':' votes');
+  document.getElementById('vc-laser').classList.toggle('winning',l>m);
+  document.getElementById('vc-mansion').classList.toggle('winning',m>l);
 }
 
-// ── Vote bars ──────────────────────────────────────────
-function updateVoteBars(counts, total) {
-  const laser   = counts.laser   || 0;
-  const mansion = counts.mansion || 0;
-  const sum = laser + mansion || 1;
+function setVoteStatus(txt){ document.getElementById('vote-status').textContent=txt; }
 
-  document.getElementById('bar-laser').style.width   = ((laser / sum) * 100) + '%';
-  document.getElementById('bar-mansion').style.width = ((mansion / sum) * 100) + '%';
-  document.getElementById('pct-laser').textContent   = laser   + (laser   === 1 ? ' vote' : ' votes');
-  document.getElementById('pct-mansion').textContent = mansion + (mansion === 1 ? ' vote' : ' votes');
-
-  document.getElementById('card-laser').classList.toggle('winning',   laser > mansion);
-  document.getElementById('card-mansion').classList.toggle('winning', mansion > laser);
-}
-
-// ── Result ────────────────────────────────────────────
-function showResult(winner, counts) {
-  cancelAnimationFrame(timerRAF);
-  setTimerBar(0, '');
-
-  const meta = GAME_META[winner];
-  document.getElementById('vote-cards').style.display = 'none';
-  document.getElementById('phase-label').textContent = 'game selected';
-
-  const resName = document.getElementById('res-name');
-  resName.textContent = meta.name;
-  resName.style.color = meta.color;
-  document.getElementById('result').classList.add('show');
-
-  let t = 3;
-  const cd = document.getElementById('res-countdown');
-  cd.textContent = `launching in ${t}s`;
-  clearInterval(countdownInterval);
-  countdownInterval = setInterval(() => {
-    t--;
-    cd.textContent = t > 0 ? `launching in ${t}s` : 'launching…';
-    if (t <= 0) clearInterval(countdownInterval);
-  }, 1000);
-}
-
-// ── Redirect ──────────────────────────────────────────
-let redirected = false;
-function redirectTo(game) {
-  if (redirected) return;
-  redirected = true;
-  const meta = GAME_META[game];
-  if (!meta) return;
-  sessionStorage.setItem('cgPlayer', JSON.stringify({ name:myName, color:myColor, autoJoin:true }));
-  document.getElementById('res-countdown').innerHTML =
-    `launching… <a href="${meta.url}" style="color:${meta.color};text-decoration:underline;">click here if stuck</a>`;
-  setTimeout(() => window.location.assign(meta.url), 500);
-}
-
-// ── Helpers ───────────────────────────────────────────
-function setStatus(txt) {
-  document.getElementById('status').textContent = txt;
-}
-
-function renderPlayers() {
-  document.getElementById('player-list').innerHTML =
-    Object.values(players).map(p => `
-      <div class="player-chip">
-        <div class="player-dot" style="background:${p.color||'#888'}"></div>
+function renderVotePlayers(){
+  document.getElementById('vote-players').innerHTML=
+    Object.values(players).map(p=>`
+      <div class="pchip">
+        <div class="pdot" style="background:${p.color||'#888'}"></div>
         <span>${p.name||'?'}</span>
       </div>`).join('');
 }
+
+// ═══════════════════════════════════════════
+//  HUD HELPERS
+// ═══════════════════════════════════════════
+function updateHUD(){
+  const c=Object.keys(players).length;
+  document.getElementById('hud-left').textContent=`${c} player${c!==1?'s':''}`;
+}
+
+function updatePips(){
+  document.getElementById('pip-bar').innerHTML=Object.values(players).map(p=>{
+    const dead=!p.alive;
+    return`<div class="pip${dead?' dead':''}" style="background:${p.color||'#888'}"></div>`;
+  }).join('');
+}
+
+function updateLB(lb){
+  document.getElementById('lb-rows').innerHTML=lb.slice(0,3).map(e=>`
+    <div class="lb-row">
+      <span class="lb-name">${e.name}</span>
+      <span class="lb-stat">${(e.best/1000).toFixed(1)}s</span>
+      <span class="lb-dot" style="background:${e.color}"></span>
+    </div>`).join('');
+}
+
+function showRoleBadge(role){
+  const el=document.getElementById('hud-role');
+  el.className=role+' show';
+  el.textContent=role==='hunter'?'👻 Hunter':'🫥 Hiding';
+}
+function hideRoleBadge(){ document.getElementById('hud-role').classList.remove('show'); }
+
+function showNotice(id){ hideAllNotices(); document.getElementById('n-'+id)?.classList.add('show'); }
+function hideAllNotices(){ document.querySelectorAll('.notice').forEach(n=>n.classList.remove('show')); }
+
+let msgTO=null;
+function showMsg(title,sub,autoClear){
+  document.getElementById('msg-title').textContent=title;
+  document.getElementById('msg-sub').textContent=sub;
+  document.getElementById('center-msg').classList.add('show');
+  if(msgTO) clearTimeout(msgTO);
+  if(autoClear>0) msgTO=setTimeout(hideMsg,autoClear);
+}
+function hideMsg(){ document.getElementById('center-msg').classList.remove('show'); }
+
+function startTimer(){
+  stopTimer();
+  timerInt=setInterval(()=>{
+    document.getElementById('hud-timer').textContent=((Date.now()-roundStartTime)/1000).toFixed(1)+'s';
+  },100);
+}
+function stopTimer(){ clearInterval(timerInt); timerInt=null; }
 </script>
 </body>
 </html>
