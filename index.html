@@ -281,6 +281,7 @@ function handle(msg) {
   if (msg.type === 'voting_start') {
     // New vote round
     myVote = null;
+    redirected = false;
     voteEnd = msg.voteEnd;
     document.getElementById('card-laser').classList.remove('selected', 'winning');
     document.getElementById('card-mansion').classList.remove('selected', 'winning');
@@ -374,11 +375,21 @@ function showResult(winner, counts) {
 }
 
 // ── Redirect ──────────────────────────────────────────
+let redirected = false;
 function redirectTo(game) {
+  if (redirected) return;
+  redirected = true;
   const meta = GAME_META[game];
-  if (!meta) return;
+  if (!meta) { dbg('ERROR: unknown game: ' + game); return; }
+  dbg('→ redirecting to ' + meta.url);
   sessionStorage.setItem('cgPlayer', JSON.stringify({ name:myName, color:myColor, autoJoin:true }));
-  window.location.href = meta.url;
+  // Show a manual link in case auto-redirect fails
+  document.getElementById('res-countdown').innerHTML =
+    `launching… <a href="${meta.url}" style="color:${meta.color};text-decoration:underline;">click here if stuck</a>`;
+  setTimeout(() => {
+    dbg('→ window.location = ' + meta.url);
+    window.location.assign(meta.url);
+  }, 500);
 }
 
 // ── Helpers ───────────────────────────────────────────
