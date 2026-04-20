@@ -85,10 +85,28 @@ export default class GameServer implements Party.Server {
     const wasHunter = this.players[conn.id]?.role === "hunter";
     delete this.players[conn.id]; delete this.cursors[conn.id]; delete this.prevCursors[conn.id];
     this.broadcast({ type: "leave", id: conn.id });
-    if (this.phase === "playing") {
-      if (this.currentGame === "mansion" && wasHunter) this.endRound(null, null);
-      else this.checkRoundEnd();
+
+    const remaining = Object.keys(this.players).length;
+
+    // Nobody left — full reset
+    if (remaining === 0) {
+      this.stopAllLoops();
+      this.clearLasers();
+      this.phase = "waiting";
+      this.hunterId = null;
+      return;
     }
+
+    if (this.phase === "playing") {
+      if (this.currentGame === "mansion" && wasHunter) {
+        // Hunter left — hiders win, pick a random hider as winner
+        const hiders = Object.values(this.players).filter(p => p.role === "hider" && p.alive);
+        this.endRound(hiders[0] ?? null, "hider");
+      } else {
+        this.checkRoundEnd();
+      }
+    }
+
     if (this.phase === "voting") this.broadcastVoteCounts();
     if (this.phase === "waiting") this.checkShouldStart();
   }
@@ -154,14 +172,22 @@ export default class GameServer implements Party.Server {
 
   checkRoundEnd() {
     if (this.phase !== "playing") return;
-    if (this.currentGame === "laser") {
-      const alive = Object.values(this.players).filter(p => p.alive && !p.spectating);
-      const total = Object.values(this.players).filter(p => !p.spectating);
-      if (alive.length <= 1 && total.length >= 1) this.endRound(alive[0] ?? null, "survivor");
+
+    const activePlayers = Object.values(this.players).filter(p => !p.spectating);
+    if (activePlayers.length === 0) {
+      this.endRound(null, null);
+      return;
     }
+
+    if (this.currentGame === "laser") {
+      const alive = activePlayers.filter(p => p.alive);
+      // End if 0 or 1 alive (or only 1 player total)
+      if (alive.length <= 1) this.endRound(alive[0] ?? null, "survivor");
+    }
+
     if (this.currentGame === "mansion") {
-      const alive = Object.values(this.players).filter(p => p.role === "hider" && p.alive && !p.spectating);
-      if (alive.length === 0) {
+      const aliveHiders = activePlayers.filter(p => p.role === "hider" && p.alive);
+      if (aliveHiders.length === 0) {
         const hunter = this.hunterId ? this.players[this.hunterId] : null;
         this.endRound(hunter ?? null, "hunter");
       }
