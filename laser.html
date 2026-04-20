@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Laser Dodge</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      width:100vw;height:100vh;overflow:hidden;
+      background:#0f0f13;cursor:none;
+      font-family:'Courier New',monospace;color:white;
+      user-select:none;
+    }
+
+    /* ── Canvas layer ── */
+    #canvas-layer{position:fixed;inset:0;z-index:10;}
+    #canvas-layer canvas{position:absolute;inset:0;}
+
+    /* ── HUD ── */
+    #hud{
+      position:fixed;top:0;left:0;right:0;padding:10px 16px;
+      display:flex;justify-content:space-between;align-items:center;
+      z-index:50;pointer-events:none;
+    }
+    #hud-left{font-size:11px;color:#555;}
+    #hud-timer{
+      position:fixed;top:10px;left:50%;transform:translateX(-50%);
+      font-size:12px;color:#555;z-index:50;pointer-events:none;
+      font-variant-numeric:tabular-nums;
+    }
+    #hud-right{font-size:11px;color:#444;}
+
+    /* ── Game label ── */
+    #game-label{
+      position:fixed;top:10px;right:16px;
+      font-size:10px;color:#333;letter-spacing:2px;
+      text-transform:uppercase;z-index:50;pointer-events:none;
+    }
+
+    /* ── Center message ── */
+    #center-msg{
+      position:fixed;inset:0;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      pointer-events:none;z-index:60;
+    }
+    #msg-title{font-size:44px;font-weight:700;opacity:0;transition:opacity 0.3s;text-align:center;letter-spacing:2px;}
+    #msg-sub  {font-size:14px;color:#888;margin-top:8px;opacity:0;transition:opacity 0.3s;text-align:center;}
+    #center-msg.visible #msg-title,
+    #center-msg.visible #msg-sub{opacity:1;}
+
+    /* ── Notices ── */
+    .notice{
+      position:fixed;top:38px;left:50%;transform:translateX(-50%);
+      display:none;padding:4px 14px;border-radius:16px;
+      font-size:11px;z-index:80;pointer-events:none;letter-spacing:1px;
+    }
+    .notice.show{display:block;}
+    #notice-dead{background:rgba(200,60,60,0.1);border:1px solid rgba(200,60,60,0.25);color:#c04040;}
+    #notice-spec{
+      top:0;border-radius:0;width:100%;text-align:center;
+      background:rgba(200,160,50,0.07);border-bottom:1px solid rgba(200,160,50,0.15);color:#907030;
+    }
+
+    /* ── Pip bar ── */
+    #pip-bar{
+      position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+      display:flex;gap:7px;z-index:50;pointer-events:none;
+    }
+    .pip{width:8px;height:8px;border-radius:50%;opacity:0.85;transition:opacity 0.3s,transform 0.3s;}
+    .pip.dead{opacity:0.15;transform:scale(0.7);}
+
+    /* ── Leaderboard ── */
+    #leaderboard{position:fixed;bottom:40px;right:14px;z-index:50;pointer-events:none;text-align:right;}
+    #leaderboard .lb-title{font-size:9px;color:#333;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;}
+    .lb-row{font-size:11px;color:#555;line-height:1.8;display:flex;align-items:center;gap:6px;justify-content:flex-end;}
+    .lb-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+    .lb-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lb-stat{color:#444;font-variant-numeric:tabular-nums;}
+
+    /* ── Lasers ── */
+    .laser-warn{
+      position:fixed;pointer-events:none;z-index:30;
+      background:rgba(255,60,60,0.08);
+      border:2px dashed rgba(255,60,60,0.5);
+      animation:warnPulse 0.35s ease-in-out infinite alternate;
+    }
+    @keyframes warnPulse{
+      from{border-color:rgba(255,60,60,0.2);background:rgba(255,60,60,0.04);}
+      to  {border-color:rgba(255,60,60,0.8);background:rgba(255,60,60,0.14);}
+    }
+    .laser-active{
+      position:fixed;pointer-events:none;z-index:31;
+      background:#ff3c3c;
+      box-shadow:0 0 8px rgba(255,60,60,0.35);
+    }
+
+    /* ── Return button (shown after round) ── */
+    #return-btn{
+      position:fixed;bottom:50px;left:50%;transform:translateX(-50%);
+      display:none;padding:8px 24px;
+      background:#111118;border:1px solid #222230;border-radius:8px;
+      font-size:12px;color:#555;letter-spacing:1px;cursor:pointer;
+      font-family:inherit;z-index:70;
+    }
+    #return-btn:hover{background:#181828;color:#888;}
+    #return-btn.show{display:block;}
+  </style>
+</head>
+<body>
+
+<div id="canvas-layer"></div>
+
+<div id="hud">
+  <div id="hud-left">0 players</div>
+  <div id="hud-right"></div>
+</div>
+<div id="hud-timer"></div>
+<div id="game-label">⚡ Laser Dodge</div>
+
+<div class="notice" id="notice-spec">spectating — join next round</div>
+<div class="notice" id="notice-dead">eliminated</div>
+
+<div id="center-msg">
+  <div id="msg-title"></div>
+  <div id="msg-sub"></div>
+</div>
+
+<div id="pip-bar"></div>
+
+<div id="leaderboard">
+  <div class="lb-title">Best Times</div>
+  <div id="lb-rows"></div>
+</div>
+
+<button id="return-btn" onclick="goToLobby()">← back to lobby</button>
+
+<script>
+const PARTYKIT_HOST = "mousegame-party.bluess1.partykit.dev";
+const COLORS = ["#e74c3c","#3498db","#2ecc71","#f39c12","#9b59b6","#1abc9c","#e67e22","#e91e63","#00bcd4","#ff5722"];
+const LASER_THICK = 28; // px
+
+// Load player info from sessionStorage
+const stored = JSON.parse(sessionStorage.getItem('cgPlayer')||'{}');
+let myName  = stored.name  || 'Player';
+let myColor = stored.color || COLORS[Math.floor(Math.random()*COLORS.length)];
+
+let socket, myId;
+let amDead=false, isSpectating=false, phase='waiting';
+let roundStartTime=0, timerInterval=null;
+let mouseX=window.innerWidth/2, mouseY=window.innerHeight/2;
+
+const players={}, cursors={};
+const laserEls={}, warnEls={};
+
+// ── Canvas ────────────────────────────────────────────
+const canvas=document.createElement('canvas');
+canvas.width=window.innerWidth; canvas.height=window.innerHeight;
+const ctx=canvas.getContext('2d');
+document.getElementById('canvas-layer').appendChild(canvas);
+window.addEventListener('resize',()=>{ canvas.width=window.innerWidth; canvas.height=window.innerHeight; });
+
+// ── Mouse ─────────────────────────────────────────────
+document.addEventListener('mousemove',e=>{
+  mouseX=e.clientX; mouseY=e.clientY;
+  sendPos(mouseX,mouseY);
+});
+
+// ── Throttle ──────────────────────────────────────────
+function throttle(fn,ms){let l=0;return(...a)=>{const n=Date.now();if(n-l<ms)return;l=n;fn(...a);};}
+const sendPos=throttle((x,y)=>{
+  if(socket?.readyState===WebSocket.OPEN)
+    socket.send(JSON.stringify({type:'cursor',x:x/window.innerWidth,y:y/window.innerHeight,name:myName,color:myColor}));
+},33);
+
+// ── Render loop ───────────────────────────────────────
+function renderLoop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // Draw other cursors
+  for(const[id,cur]of Object.entries(cursors)){
+    if(id===myId) continue;
+    const p=players[id]; if(!p) continue;
+    drawCursor(cur.x*canvas.width,cur.y*canvas.height,p.color||'#888',p.name||'?',!p.alive);
+  }
+  // Own cursor
+  drawCursor(mouseX,mouseY,myColor,myName,amDead);
+  requestAnimationFrame(renderLoop);
+}
+
+function drawCursor(x,y,color,name,dead){
+  ctx.save();
+  ctx.globalAlpha=dead?0.22:1;
+  ctx.translate(x,y);
+  ctx.beginPath();
+  ctx.moveTo(0,0);ctx.lineTo(0,18);ctx.lineTo(4,14);ctx.lineTo(7,21);
+  ctx.lineTo(9,20);ctx.lineTo(6,13);ctx.lineTo(11,13);ctx.closePath();
+  ctx.fillStyle=color; ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.4)';ctx.lineWidth=0.8;ctx.stroke();
+  ctx.globalAlpha=dead?0.22:0.9;
+  ctx.fillStyle=color;ctx.font='11px "Courier New",monospace';
+  ctx.textAlign='left';ctx.fillText(name,13,14);
+  ctx.restore();
+}
+
+// ── Laser DOM helpers ─────────────────────────────────
+function stripeStyle(axis,pos){
+  const px=axis==='h'?pos*window.innerHeight:pos*window.innerWidth;
+  return axis==='h'
+    ?`left:0;right:0;top:${px}px;height:${LASER_THICK}px;`
+    :`top:0;bottom:0;left:${px}px;width:${LASER_THICK}px;`;
+}
+function showWarn(laser){
+  const el=document.createElement('div');
+  el.className='laser-warn';
+  el.style.cssText=stripeStyle(laser.axis,laser.pos);
+  document.body.appendChild(el);
+  warnEls[laser.id]=el;
+}
+function showLaser(laser){
+  const el=document.createElement('div');
+  el.className='laser-active';
+  el.style.cssText=stripeStyle(laser.axis,laser.pos);
+  document.body.appendChild(el);
+  laserEls[laser.id]={el,axis:laser.axis,pos:laser.pos};
+}
+function moveLasers(updates){
+  for(const u of updates){
+    if(!laserEls[u.id]) continue;
+    laserEls[u.id].pos=u.pos;
+    const px=laserEls[u.id].axis==='h'?u.pos*window.innerHeight:u.pos*window.innerWidth;
+    if(laserEls[u.id].axis==='h') laserEls[u.id].el.style.top=px+'px';
+    else laserEls[u.id].el.style.left=px+'px';
+  }
+}
+function removeWarn(id){ warnEls[id]?.remove(); delete warnEls[id]; }
+function removeLaser(id){ laserEls[id]?.el.remove(); delete laserEls[id]; }
+function clearAll(){
+  for(const id in laserEls) removeLaser(id);
+  for(const id in warnEls)  removeWarn(id);
+}
+
+// ── WebSocket ─────────────────────────────────────────
+function connect(){
+  const proto=PARTYKIT_HOST.startsWith('localhost')?'ws':'wss';
+  socket=new WebSocket(`${proto}://${PARTYKIT_HOST}/parties/main/arena`);
+  socket.onopen=()=>{ socket.send(JSON.stringify({type:'hello',name:myName,color:myColor})); };
+  socket.onmessage=e=>{ handle(JSON.parse(e.data)); };
+  socket.onclose=()=>setTimeout(connect,2000);
+}
+
+function handle(msg){
+  if(msg.type==='init'){
+    myId=msg.id; isSpectating=msg.spectating; phase=msg.phase;
+    for(const[id,p]of Object.entries(msg.players)) players[id]=p;
+    Object.assign(cursors,msg.cursors||{});
+    updateLeaderboard(msg.leaderboard||[]);
+    updateHUD(); updatePips();
+    if(isSpectating) showNotice('spec');
+    if(phase==='playing'&&msg.currentGame==='laser'){
+      roundStartTime=msg.roundStartTime; startTimer();
+    }
+    if(phase!=='playing'||msg.currentGame!=='laser'){
+      // Wrong game or not playing — go back to lobby
+      goToLobby();
+    }
+  }
+
+  if(msg.type==='player_join'){ players[msg.id]=msg.player; updateHUD(); updatePips(); }
+
+  if(msg.type==='cursor'&&msg.id!==myId){
+    cursors[msg.id]={x:msg.x,y:msg.y};
+    if(players[msg.id]){players[msg.id].name=msg.name;players[msg.id].color=msg.color;}
+  }
+
+  if(msg.type==='leave'){ delete players[msg.id]; delete cursors[msg.id]; updateHUD(); updatePips(); }
+
+  if(msg.type==='laser_warn') showWarn(msg.laser);
+  if(msg.type==='laser_fire') showLaser(msg.laser);
+  if(msg.type==='laser_remove') removeLaser(msg.id);
+  if(msg.type==='lasers_move') moveLasers(msg.lasers);
+  if(msg.type==='clear_lasers') clearAll();
+
+  if(msg.type==='player_dead'){
+    if(players[msg.id]) players[msg.id].alive=false;
+    if(msg.id===myId){ amDead=true; stopTimer(); showNotice('dead'); }
+    updatePips(); updateLeaderboard(msg.leaderboard||[]);
+  }
+
+  if(msg.type==='round_end'){
+    phase='waiting'; stopTimer(); clearAll();
+    const isMe=msg.winner===myId;
+    showMessage(isMe?'You Survived!':msg.winnerName+' Wins!', 'Returning to lobby…', 0);
+    updateLeaderboard(msg.leaderboard||[]);
+    document.getElementById('return-btn').classList.add('show');
+    // Auto-return to lobby after 4s (voting will start there)
+    setTimeout(goToLobby, 4000);
+  }
+
+  if(msg.type==='voting_start'||msg.type==='round_start'){
+    // If round_start is for a different game, go to lobby to be redirected
+    if(msg.type==='round_start'&&msg.game!=='laser'){ goToLobby(); return; }
+    if(msg.type==='voting_start'){ goToLobby(); return; }
+    // New laser round
+    phase='playing'; roundStartTime=msg.time; amDead=false; isSpectating=false;
+    for(const[id,p]of Object.entries(msg.players)) players[id]=p;
+    hideAllNotices();
+    document.getElementById('center-msg').classList.remove('visible');
+    document.getElementById('return-btn').classList.remove('show');
+    updateHUD(); updatePips();
+    startTimer();
+    showMessage('⚡ Laser Dodge','Dodge the lasers!',2500);
+  }
+}
+
+function goToLobby(){
+  sessionStorage.setItem('cgPlayer',JSON.stringify({name:myName,color:myColor,autoJoin:true}));
+  window.location.href='lobby.html';
+}
+
+// ── HUD ───────────────────────────────────────────────
+function updateHUD(){
+  const c=Object.keys(players).length;
+  document.getElementById('hud-left').textContent=`${c} player${c!==1?'s':''}`;
+}
+function updatePips(){
+  const bar=document.getElementById('pip-bar');
+  bar.innerHTML=Object.values(players).map(p=>`
+    <div class="pip${p.alive?'':' dead'}" style="background:${p.color||'#888'}"></div>`).join('');
+}
+function updateLeaderboard(lb){
+  document.getElementById('lb-rows').innerHTML=lb.slice(0,3).map(e=>`
+    <div class="lb-row">
+      <span class="lb-name">${e.name}</span>
+      <span class="lb-stat">${(e.best/1000).toFixed(1)}s</span>
+      <span class="lb-dot" style="background:${e.color}"></span>
+    </div>`).join('');
+}
+function showNotice(type){ hideAllNotices(); document.getElementById(`notice-${type}`)?.classList.add('show'); }
+function hideAllNotices(){ document.querySelectorAll('.notice').forEach(n=>n.classList.remove('show')); }
+
+let timerInt=null;
+function startTimer(){ stopTimer(); timerInt=setInterval(()=>{ document.getElementById('hud-timer').textContent=((Date.now()-roundStartTime)/1000).toFixed(1)+'s'; },100); }
+function stopTimer(){ clearInterval(timerInt); timerInt=null; }
+
+let msgTO=null;
+function showMessage(title,sub,autoClear){
+  document.getElementById('msg-title').textContent=title;
+  document.getElementById('msg-sub').textContent=sub;
+  document.getElementById('center-msg').classList.add('visible');
+  if(msgTO) clearTimeout(msgTO);
+  if(autoClear>0) msgTO=setTimeout(()=>document.getElementById('center-msg').classList.remove('visible'),autoClear);
+}
+
+connect();
+renderLoop();
+</script>
+</body>
+</html>

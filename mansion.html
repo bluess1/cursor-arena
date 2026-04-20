@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mansion Maze</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{
+      width:100vw;height:100vh;overflow:hidden;
+      background:#0a0a0f;cursor:none;
+      font-family:'Courier New',monospace;color:white;
+      user-select:none;
+    }
+
+    #maze-canvas{position:fixed;inset:0;z-index:10;}
+    #light-canvas{position:fixed;inset:0;z-index:11;}
+
+    #hud{
+      position:fixed;top:0;left:0;right:0;padding:10px 16px;
+      display:flex;justify-content:space-between;align-items:center;
+      z-index:50;pointer-events:none;
+    }
+    #hud-left{font-size:11px;color:#555;}
+    #hud-timer{
+      position:fixed;top:10px;left:50%;transform:translateX(-50%);
+      font-size:12px;color:#555;z-index:50;pointer-events:none;
+      font-variant-numeric:tabular-nums;
+    }
+
+    #game-label{
+      position:fixed;top:10px;right:16px;
+      font-size:10px;color:#2a2a40;letter-spacing:2px;
+      text-transform:uppercase;z-index:50;pointer-events:none;
+    }
+
+    #hud-role{
+      position:fixed;top:10px;left:50%;transform:translateX(-50%);
+      font-size:11px;padding:3px 12px;border-radius:10px;
+      letter-spacing:1px;z-index:52;pointer-events:none;
+      opacity:0;transition:opacity 0.3s;
+    }
+    #hud-role.visible{opacity:1;}
+    #hud-role.hunter{background:rgba(200,160,50,0.1);border:1px solid rgba(200,160,50,0.25);color:#c8a040;}
+    #hud-role.hider {background:rgba(80,130,220,0.1);border:1px solid rgba(80,130,220,0.25);color:#6090d8;}
+
+    #center-msg{
+      position:fixed;inset:0;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      pointer-events:none;z-index:60;
+    }
+    #msg-title{font-size:44px;font-weight:700;opacity:0;transition:opacity 0.3s;text-align:center;letter-spacing:2px;}
+    #msg-sub  {font-size:14px;color:#888;margin-top:8px;opacity:0;transition:opacity 0.3s;text-align:center;}
+    #center-msg.visible #msg-title,
+    #center-msg.visible #msg-sub{opacity:1;}
+
+    .notice{
+      position:fixed;top:38px;left:50%;transform:translateX(-50%);
+      display:none;padding:4px 14px;border-radius:16px;
+      font-size:11px;z-index:80;pointer-events:none;letter-spacing:1px;
+    }
+    .notice.show{display:block;}
+    #notice-caught{background:rgba(200,60,60,0.1);border:1px solid rgba(200,60,60,0.25);color:#c04040;}
+    #notice-spec{
+      top:0;border-radius:0;width:100%;text-align:center;
+      background:rgba(200,160,50,0.07);border-bottom:1px solid rgba(200,160,50,0.15);color:#907030;
+    }
+
+    #pip-bar{
+      position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+      display:flex;gap:7px;z-index:50;pointer-events:none;
+    }
+    .pip{width:8px;height:8px;border-radius:50%;opacity:0.85;transition:opacity 0.3s,transform 0.3s;}
+    .pip.dead{opacity:0.15;transform:scale(0.7);}
+
+    #leaderboard{position:fixed;bottom:40px;right:14px;z-index:50;pointer-events:none;text-align:right;}
+    #leaderboard .lb-title{font-size:9px;color:#333;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;}
+    .lb-row{font-size:11px;color:#555;line-height:1.8;display:flex;align-items:center;gap:6px;justify-content:flex-end;}
+    .lb-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+    .lb-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .lb-stat{color:#444;font-variant-numeric:tabular-nums;}
+
+    #return-btn{
+      position:fixed;bottom:50px;left:50%;transform:translateX(-50%);
+      display:none;padding:8px 24px;
+      background:#111118;border:1px solid #222230;border-radius:8px;
+      font-size:12px;color:#555;letter-spacing:1px;cursor:pointer;
+      font-family:inherit;z-index:70;
+    }
+    #return-btn:hover{background:#181828;color:#888;}
+    #return-btn.show{display:block;}
+  </style>
+</head>
+<body>
+
+<canvas id="maze-canvas"></canvas>
+<canvas id="light-canvas"></canvas>
+
+<div id="hud">
+  <div id="hud-left">0 players</div>
+  <div></div>
+</div>
+<div id="hud-timer"></div>
+<div id="hud-role"></div>
+<div id="game-label">👻 Mansion Maze</div>
+
+<div class="notice" id="notice-spec">spectating — join next round</div>
+<div class="notice" id="notice-caught">caught!</div>
+
+<div id="center-msg">
+  <div id="msg-title"></div>
+  <div id="msg-sub"></div>
+</div>
+
+<div id="pip-bar"></div>
+
+<div id="leaderboard">
+  <div class="lb-title">Survivors</div>
+  <div id="lb-rows"></div>
+</div>
+
+<button id="return-btn" onclick="goToLobby()">← back to lobby</button>
+
+<script>
+const PARTYKIT_HOST = "mousegame-party.bluess1.partykit.dev";
+const COLORS = ["#e74c3c","#3498db","#2ecc71","#f39c12","#9b59b6","#1abc9c","#e67e22","#e91e63","#00bcd4","#ff5722"];
+
+const CELL=48, FOV=Math.PI*0.5, LIGHT=200, RAYS=160, WALL_PAD=7;
+
+const stored=JSON.parse(sessionStorage.getItem('cgPlayer')||'{}');
+let myName=stored.name||'Ghost';
+let myColor=stored.color||COLORS[Math.floor(Math.random()*COLORS.length)];
+
+let socket,myId,myRole=null,amCaught=false,isSpectating=false,phase='waiting';
+let roundStartTime=0,timerInterval=null,mazeSeed=0;
+let mouseX=window.innerWidth/2,mouseY=window.innerHeight/2;
+let aimAngle=0,prevMX=mouseX,prevMY=mouseY;
+
+const players={},cursors={};
+
+// ── Canvases ──────────────────────────────────────────
+const mazeC=document.getElementById('maze-canvas');
+const lightC=document.getElementById('light-canvas');
+const mCtx=mazeC.getContext('2d');
+const lCtx=lightC.getContext('2d');
+
+function resizeCanvases(){
+  mazeC.width=lightC.width=window.innerWidth;
+  mazeC.height=lightC.height=window.innerHeight;
+}
+resizeCanvases();
+window.addEventListener('resize',()=>{ resizeCanvases(); if(mazeSeed) buildAndDraw(mazeSeed); });
+
+// ── Maze ──────────────────────────────────────────────
+let COLS=0,ROWS=0,wallH=[],wallV=[],wallSegs=[];
+
+function makeRng(seed){
+  let s=seed>>>0;
+  return()=>{s+=0x6D2B79F5;let t=Math.imul(s^(s>>>15),1|s);t^=t+Math.imul(t^(t>>>7),61|t);return((t^(t>>>14))>>>0)/4294967296;};
+}
+
+function buildAndDraw(seed){
+  mazeSeed=seed;
+  const W=mazeC.width,H=mazeC.height;
+  COLS=Math.floor(W/CELL); ROWS=Math.floor(H/CELL);
+  const rng=makeRng(seed);
+  wallH=Array.from({length:ROWS+1},()=>Array(COLS).fill(1));
+  wallV=Array.from({length:ROWS},()=>Array(COLS+1).fill(1));
+  const vis=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  function carve(c,r){
+    vis[r][c]=1;
+    const dirs=[[0,-1],[1,0],[0,1],[-1,0]].sort(()=>rng()-0.5);
+    for(const[dc,dr]of dirs){
+      const nc=c+dc,nr=r+dr;
+      if(nc<0||nc>=COLS||nr<0||nr>=ROWS||vis[nr][nc]) continue;
+      if(dr===-1) wallH[r][c]=0; else if(dr===1) wallH[r+1][c]=0;
+      else if(dc===-1) wallV[r][c]=0; else wallV[r][c+1]=0;
+      carve(nc,nr);
+    }
+  }
+  carve(0,0);
+  // Build wall segments
+  wallSegs=[];
+  for(let r=0;r<=ROWS;r++) for(let c=0;c<COLS;c++) if(r===0||r===ROWS||wallH[r][c]) wallSegs.push([c*CELL,r*CELL,(c+1)*CELL,r*CELL]);
+  for(let r=0;r<ROWS;r++) for(let c=0;c<=COLS;c++) if(c===0||c===COLS||wallV[r][c]) wallSegs.push([c*CELL,r*CELL,c*CELL,(r+1)*CELL]);
+  drawMaze();
+}
+
+function drawMaze(){
+  const W=mazeC.width,H=mazeC.height;
+  mCtx.clearRect(0,0,W,H);
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    mCtx.fillStyle=(c+r)%2===0?'#0e0e1d':'#0c0c1a';
+    mCtx.fillRect(c*CELL,r*CELL,CELL,CELL);
+  }
+  mCtx.strokeStyle='#1e1e32';mCtx.lineWidth=2;mCtx.lineCap='square';
+  for(const[x1,y1,x2,y2]of wallSegs){mCtx.beginPath();mCtx.moveTo(x1,y1);mCtx.lineTo(x2,y2);mCtx.stroke();}
+  mCtx.strokeStyle='#28284a';mCtx.lineWidth=3;mCtx.strokeRect(1,1,W-2,H-2);
+  // Candle accents
+  [[1,1],[Math.floor(COLS*.55),2],[Math.floor(COLS*.28),Math.floor(ROWS*.6)]].forEach(([c,r])=>{
+    if(c>=COLS||r>=ROWS) return;
+    const x=c*CELL+CELL/2,y=r*CELL+CELL/2;
+    mCtx.fillStyle='#1e140a';mCtx.fillRect(x-2,y-5,4,9);
+    const g=mCtx.createRadialGradient(x,y-7,0,x,y-7,14);
+    g.addColorStop(0,'rgba(255,190,60,0.14)');g.addColorStop(1,'rgba(0,0,0,0)');
+    mCtx.fillStyle=g;mCtx.beginPath();mCtx.arc(x,y-7,14,0,Math.PI*2);mCtx.fill();
+  });
+}
+
+// ── Wall collision ────────────────────────────────────
+function clamp(px,py){
+  const W=window.innerWidth,H=window.innerHeight;
+  let x=Math.max(WALL_PAD,Math.min(W-WALL_PAD,px));
+  let y=Math.max(WALL_PAD,Math.min(H-WALL_PAD,py));
+  if(!COLS||!ROWS) return{x,y};
+  const c=Math.floor(x/CELL),r=Math.floor(y/CELL);
+  if(c<0||c>=COLS||r<0||r>=ROWS) return{x,y};
+  const cx=c*CELL,cy=r*CELL;
+  if(wallH[r]&&wallH[r][c]&&(y-cy)<WALL_PAD)          y=cy+WALL_PAD;
+  if(wallH[r+1]&&wallH[r+1][c]&&(cy+CELL-y)<WALL_PAD) y=cy+CELL-WALL_PAD;
+  if(wallV[r]&&wallV[r][c]&&(x-cx)<WALL_PAD)           x=cx+WALL_PAD;
+  if(wallV[r]&&wallV[r][c+1]&&(cx+CELL-x)<WALL_PAD)   x=cx+CELL-WALL_PAD;
+  return{x,y};
+}
+
+// ── Raycasting ────────────────────────────────────────
+function castRay(ox,oy,angle){
+  const dx=Math.cos(angle),dy=Math.sin(angle);
+  let minT=LIGHT+10;
+  for(const[x1,y1,x2,y2]of wallSegs){
+    const wx=x2-x1,wy=y2-y1,denom=dx*wy-dy*wx;
+    if(Math.abs(denom)<0.001) continue;
+    const t=((x1-ox)*wy-(y1-oy)*wx)/denom;
+    const u=((x1-ox)*dy-(y1-oy)*dx)/denom;
+    if(t>1&&u>=0&&u<=1&&t<minT) minT=t;
+  }
+  return Math.min(minT,LIGHT);
+}
+
+// ── Cursor drawing ────────────────────────────────────
+function drawCursorAt(ctx,x,y,color,name,role,faded){
+  ctx.save();ctx.translate(x,y);
+  if(faded) ctx.globalAlpha=0.22;
+  if(role==='hunter'){
+    ctx.fillStyle='#b89030';
+    rrect(ctx,-4,-3,20,6,3);ctx.fill();
+    ctx.fillStyle='#7a5f1a';rrect(ctx,-4,2,7,9,2);ctx.fill();
+    ctx.fillStyle=color;ctx.beginPath();ctx.arc(17,0,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,230,120,0.5)';ctx.beginPath();ctx.arc(17,0,3,0,Math.PI*2);ctx.fill();
+  } else {
+    ctx.fillStyle=color;
+    ctx.beginPath();ctx.arc(0,-5,7,Math.PI,0);
+    ctx.lineTo(7,5);ctx.quadraticCurveTo(5,3,0,6);ctx.quadraticCurveTo(-5,3,-7,5);ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,0.65)';
+    ctx.beginPath();ctx.arc(-2.5,-5,1.5,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(2.5,-5,1.5,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=faded?0.22:0.85;
+  ctx.fillStyle=color;ctx.font='11px "Courier New",monospace';ctx.textAlign='center';
+  ctx.fillText(name,role==='hunter'?7:0,20);
+  ctx.restore();
+}
+function rrect(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+}
+
+// ── Light layer ───────────────────────────────────────
+function drawLight(){
+  const W=lightC.width,H=lightC.height;
+  lCtx.clearRect(0,0,W,H);
+
+  if(myRole==='hider'||isSpectating){
+    // Fully lit — draw everyone
+    for(const[id,cur]of Object.entries(cursors)){
+      if(id===myId) continue;
+      const p=players[id];if(!p) continue;
+      drawCursorAt(lCtx,cur.x*W,cur.y*H,p.color||'#888',p.name||'?',p.role,!p.alive);
+    }
+    drawCursorAt(lCtx,mouseX,mouseY,myColor,myName,myRole,amCaught);
+    return;
+  }
+
+  // Hunter: dark + flashlight cone
+  lCtx.fillStyle='rgba(6,5,18,0.92)';lCtx.fillRect(0,0,W,H);
+
+  const pts=[];
+  for(let i=0;i<=RAYS;i++){
+    const a=aimAngle-FOV/2+(FOV*i/RAYS),d=castRay(mouseX,mouseY,a);
+    pts.push({x:mouseX+Math.cos(a)*d,y:mouseY+Math.sin(a)*d});
+  }
+
+  lCtx.save();lCtx.globalCompositeOperation='destination-out';
+  const grad=lCtx.createRadialGradient(mouseX,mouseY,0,mouseX,mouseY,LIGHT);
+  grad.addColorStop(0,'rgba(255,225,140,0.9)');
+  grad.addColorStop(0.4,'rgba(255,200,100,0.6)');
+  grad.addColorStop(0.75,'rgba(255,170,60,0.2)');
+  grad.addColorStop(1,'rgba(0,0,0,0)');
+  lCtx.fillStyle=grad;
+  lCtx.beginPath();lCtx.moveTo(mouseX,mouseY);
+  for(const p of pts) lCtx.lineTo(p.x,p.y);
+  lCtx.closePath();lCtx.fill();
+  const amb=lCtx.createRadialGradient(mouseX,mouseY,0,mouseX,mouseY,20);
+  amb.addColorStop(0,'rgba(255,230,150,0.4)');amb.addColorStop(1,'rgba(0,0,0,0)');
+  lCtx.fillStyle=amb;lCtx.beginPath();lCtx.arc(mouseX,mouseY,20,0,Math.PI*2);lCtx.fill();
+  lCtx.restore();
+
+  // Draw hiders in light cone only
+  for(const[id,cur]of Object.entries(cursors)){
+    if(id===myId) continue;
+    const p=players[id];if(!p||p.role==='hunter') continue;
+    const px=cur.x*W,py=cur.y*H;
+    const da=Math.atan2(py-mouseY,px-mouseX);
+    let diff=da-aimAngle;while(diff>Math.PI)diff-=Math.PI*2;while(diff<-Math.PI)diff+=Math.PI*2;
+    const dist=Math.hypot(px-mouseX,py-mouseY);
+    if(Math.abs(diff)>FOV/2+0.05||dist>LIGHT) continue;
+    if(dist>castRay(mouseX,mouseY,da)+CELL*0.7) continue;
+    lCtx.save();lCtx.globalCompositeOperation='source-over';
+    lCtx.globalAlpha=Math.max(0.4,1-(dist/LIGHT)*0.5);
+    drawCursorAt(lCtx,px,py,p.color||'#888',p.name||'?',p.role,!p.alive);
+    lCtx.restore();
+  }
+  // Hunter cursor always visible
+  lCtx.save();lCtx.globalCompositeOperation='source-over';
+  drawCursorAt(lCtx,mouseX,mouseY,myColor,myName,'hunter',false);
+  lCtx.restore();
+}
+
+// ── Mouse ─────────────────────────────────────────────
+document.addEventListener('mousemove',e=>{
+  const raw=clamp(e.clientX,e.clientY);
+  const dx=raw.x-prevMX,dy=raw.y-prevMY;
+  if(Math.abs(dx)>1||Math.abs(dy)>1) aimAngle=Math.atan2(dy,dx);
+  prevMX=raw.x;prevMY=raw.y;
+  mouseX=raw.x;mouseY=raw.y;
+  sendPos(mouseX,mouseY);
+});
+
+function throttle(fn,ms){let l=0;return(...a)=>{const n=Date.now();if(n-l<ms)return;l=n;fn(...a);};}
+const sendPos=throttle((x,y)=>{
+  if(socket?.readyState===WebSocket.OPEN)
+    socket.send(JSON.stringify({type:'cursor',x:x/window.innerWidth,y:y/window.innerHeight,name:myName,color:myColor}));
+},33);
+
+// ── Render loop ───────────────────────────────────────
+function renderLoop(){ drawLight(); requestAnimationFrame(renderLoop); }
+
+// ── WebSocket ─────────────────────────────────────────
+function connect(){
+  const proto=PARTYKIT_HOST.startsWith('localhost')?'ws':'wss';
+  socket=new WebSocket(`${proto}://${PARTYKIT_HOST}/parties/main/arena`);
+  socket.onopen=()=>{ socket.send(JSON.stringify({type:'hello',name:myName,color:myColor})); };
+  socket.onmessage=e=>{ handle(JSON.parse(e.data)); };
+  socket.onclose=()=>setTimeout(connect,2000);
+}
+
+function handle(msg){
+  if(msg.type==='init'){
+    myId=msg.id;isSpectating=msg.spectating;phase=msg.phase;
+    for(const[id,p]of Object.entries(msg.players)) players[id]=p;
+    Object.assign(cursors,msg.cursors||{});
+    updateLeaderboard(msg.leaderboard||[]);
+    updateHUD();updatePips();
+    if(isSpectating) showNotice('spec');
+    if(phase==='playing'&&msg.currentGame==='mansion'){
+      mazeSeed=msg.mazeSeed;buildAndDraw(mazeSeed);
+      roundStartTime=msg.roundStartTime;startTimer();
+    }
+    if(phase!=='playing'||msg.currentGame!=='mansion') goToLobby();
+  }
+
+  if(msg.type==='player_join'){players[msg.id]=msg.player;updateHUD();updatePips();}
+  if(msg.type==='cursor'&&msg.id!==myId){
+    cursors[msg.id]={x:msg.x,y:msg.y};
+    if(players[msg.id]){players[msg.id].name=msg.name;players[msg.id].color=msg.color;}
+  }
+  if(msg.type==='leave'){delete players[msg.id];delete cursors[msg.id];updateHUD();updatePips();}
+
+  if(msg.type==='role_assigned'){
+    myRole=msg.role;
+    const el=document.getElementById('hud-role');
+    el.className=msg.role+' visible';
+    el.textContent=msg.role==='hunter'?'👻 Hunter':'🫥 Hiding';
+    showMessage(msg.role==='hunter'?'👻 You Are The Hunter':'🫥 Hide!',
+      msg.role==='hunter'?'Find hiders with your flashlight':'Stay out of the light',3000);
+  }
+
+  if(msg.type==='player_caught'){
+    if(players[msg.id]) players[msg.id].alive=false;
+    if(msg.id===myId){amCaught=true;stopTimer();showNotice('caught');}
+    updatePips();updateLeaderboard(msg.leaderboard||[]);
+  }
+
+  if(msg.type==='round_end'){
+    phase='waiting';stopTimer();
+    const isMe=msg.winner===myId;
+    let title,sub;
+    if(msg.winnerRole==='hunter'){title=isMe?'You Caught Them All!':'Hunter Wins!';sub=`${msg.winnerName} caught every hider`;}
+    else{title=isMe?'You Survived!':'Nobody Survived';sub='Returning to lobby…';}
+    showMessage(title,sub,0);
+    updateLeaderboard(msg.leaderboard||[]);
+    document.getElementById('return-btn').classList.add('show');
+    setTimeout(goToLobby,4000);
+  }
+
+  if(msg.type==='voting_start'){goToLobby();return;}
+
+  if(msg.type==='round_start'){
+    if(msg.game!=='mansion'){goToLobby();return;}
+    phase='playing';roundStartTime=msg.time;amCaught=false;isSpectating=false;myRole=null;
+    mazeSeed=msg.mazeSeed;buildAndDraw(mazeSeed);
+    for(const[id,p]of Object.entries(msg.players)) players[id]=p;
+    hideAllNotices();
+    document.getElementById('center-msg').classList.remove('visible');
+    document.getElementById('hud-role').classList.remove('visible');
+    document.getElementById('return-btn').classList.remove('show');
+    updateHUD();updatePips();startTimer();
+  }
+}
+
+function goToLobby(){
+  sessionStorage.setItem('cgPlayer',JSON.stringify({name:myName,color:myColor,autoJoin:true}));
+  window.location.href='lobby.html';
+}
+
+function updateHUD(){
+  const c=Object.keys(players).length;
+  document.getElementById('hud-left').textContent=`${c} player${c!==1?'s':''}`;
+}
+function updatePips(){
+  document.getElementById('pip-bar').innerHTML=Object.values(players).map(p=>{
+    const dead=p.role==='hider'&&!p.alive;
+    return `<div class="pip${dead?' dead':''}" style="background:${p.color||'#888'}"></div>`;
+  }).join('');
+}
+function updateLeaderboard(lb){
+  document.getElementById('lb-rows').innerHTML=lb.slice(0,3).map(e=>`
+    <div class="lb-row">
+      <span class="lb-name">${e.name}</span>
+      <span class="lb-stat">${(e.best/1000).toFixed(1)}s</span>
+      <span class="lb-dot" style="background:${e.color}"></span>
+    </div>`).join('');
+}
+function showNotice(type){hideAllNotices();document.getElementById(`notice-${type}`)?.classList.add('show');}
+function hideAllNotices(){document.querySelectorAll('.notice').forEach(n=>n.classList.remove('show'));}
+
+let timerInt=null;
+function startTimer(){stopTimer();timerInt=setInterval(()=>{document.getElementById('hud-timer').textContent=((Date.now()-roundStartTime)/1000).toFixed(1)+'s';},100);}
+function stopTimer(){clearInterval(timerInt);timerInt=null;}
+
+let msgTO=null;
+function showMessage(title,sub,autoClear){
+  document.getElementById('msg-title').textContent=title;
+  document.getElementById('msg-sub').textContent=sub;
+  document.getElementById('center-msg').classList.add('visible');
+  if(msgTO) clearTimeout(msgTO);
+  if(autoClear>0) msgTO=setTimeout(()=>document.getElementById('center-msg').classList.remove('visible'),autoClear);
+}
+
+connect();
+renderLoop();
+</script>
+</body>
+</html>
